@@ -232,14 +232,14 @@
       r.classList.toggle('now', brewing && i === S.pourIdx);
       r.classList.toggle('done', brewing && i < S.pourIdx);
     });
-    let label = 'ابدأ', icon = '▶';
+    let label = 'ابدأ', icon = 'play';
     const otherBusy = S.active && !mine && S.flow !== 'idle';
     if (mine) {
       label = { loading: 'يحمّل…', loaded: 'جاهز', starting: 'يبدأ…', brewing: 'وقّف مؤقت', paused: 'كمّل' }[S.flow] || 'ابدأ';
-      icon = { loading: '⟳', starting: '⟳', brewing: '❚❚' }[S.flow] || '▶';
+      icon = { loading: 'spin', starting: 'spin', brewing: 'pause' }[S.flow] || 'play';
     } else if (otherBusy) label = 'المكينة مشغولة';
     $('#d-start-lbl').textContent = label;
-    $('#d-start-ic').textContent = icon;
+    useIcon($('#d-start-ic'), icon);
     $('#d-stop').hidden = !brewing;
     $('#d-start').classList.toggle('dim', !link.connected || otherBusy);
   }
@@ -334,7 +334,7 @@
     $('#bw-g').textContent = S.weight.toFixed(1);
     $('#bw-ml').textContent = Math.round(S.water);
     $('#bw-t').textContent = fmtMS(S.brewStart ? Date.now() - S.brewStart : 0);
-    $('#bw-pause').textContent = S.flow === 'paused' ? '▶' : '❚❚';
+    useIcon($('#bw-pause .ic'), S.flow === 'paused' ? 'play' : 'pause');
     $('#ov-brew').classList.toggle('paused', S.flow === 'paused');
     brewFx.view = { progress: Math.min(1, S.water / Math.max(1, totalWater(p))), pouring, grinding: S.activity === 34, paused: S.flow === 'paused' };
   }
@@ -411,7 +411,14 @@
   valueCard($('#gr-rpm'), { label: 'سرعة الطاحونة', unitLabel: 'RPM', min: 60, max: 120, step: 10, value: mod.gRpm }, (v, rel) => {
     mod.gRpm = v; saveMod(); if (rel && S.screen === 'grinder') link.cmd('grinderEnter', mod.gSize, mod.gRpm);
   });
-  function setGrinding(on) { S.grinding = on; $('#gr-play').textContent = on ? '■' : '▶'; $('#gr-play').classList.toggle('on', on); }
+  // big start/stop capsules on the module screens: icon + word, never a bare glyph
+  function useIcon(svg, name) { svg.querySelector('use').setAttribute('href', '#i-' + name); svg.classList.toggle('spin', name === 'spin'); }
+  function actState(btn, on, idle, busy) {
+    btn.classList.toggle('on', on);
+    useIcon(btn.querySelector('.ic'), on ? 'stop' : 'play');
+    btn.querySelector('span').textContent = on ? busy : idle;
+  }
+  function setGrinding(on) { S.grinding = on; actState($('#gr-play'), on, 'اطحن', 'وقّف الطحن'); }
   $('#gr-play').addEventListener('click', async () => {
     if (!link.connected) return toast('المكينة مو متصلة');
     const on = !S.grinding;
@@ -436,7 +443,7 @@
   setPattern(mod.bPat, false);
   function setPouring(on) {
     S.pouring = on; if (on) S.pourStart = Date.now();
-    $('#br-play').textContent = on ? '■' : '▶'; $('#br-play').classList.toggle('on', on);
+    actState($('#br-play'), on, 'صبّ', 'وقّف الصب');
   }
   $('#br-play').addEventListener('click', async () => {
     if (!link.connected) return toast('المكينة مو متصلة');
@@ -467,7 +474,7 @@
   $('#sc-sw').addEventListener('click', () => {
     if (sw.running) { sw.elapsed += Date.now() - sw.start; sw.running = false; }
     else { sw.elapsed = 0; sw.start = Date.now(); sw.running = true; }
-    $('#sc-sw').textContent = sw.running ? '❚❚' : '▶';
+    useIcon($('#sc-sw .ic'), sw.running ? 'pause' : 'play');
   });
   const fmtSW = (ms) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -832,6 +839,7 @@
     if (S.screen === 'detail' && S.active === S.cur) refreshDetail();
     updateBrew();
     $('#br-timer').textContent = fmtSW(S.pouring ? Date.now() - S.pourStart : 0);
+    $('#br-play').style.setProperty('--p', S.pouring ? Math.min(1, (Date.now() - S.pourStart) / (mod.bVol / mod.bFlow * 1000)).toFixed(3) : 0);
     $('#sc-timer').textContent = fmtSW(sw.elapsed + (sw.running ? Date.now() - sw.start : 0));
     if (S.pouring && Date.now() - S.pourStart > (mod.bVol / mod.bFlow + 8) * 1000) setPouring(false);
     const idle = Date.now() - S.lastTouch;

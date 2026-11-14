@@ -117,6 +117,21 @@ svg { width: 1em; height: 1em; flex: none; }
 .round-btn.tiny { width: 2.2em; height: 2.2em; font-size: .8em; display: inline-grid; vertical-align: middle; box-shadow: none; }
 .round-btn.danger { background: var(--s2); color: var(--red); box-shadow: none; }
 .round-btn.on { background: var(--red); color: var(--text); box-shadow: 0 0 0 10px #f0625a1f; }
+.round-btn .ic { width: 42%; height: 42%; }
+.ic.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* start/stop capsule: yellow with icon and word; while running it turns paper-white with a red stop square */
+.act-btn { position: relative; overflow: hidden; width: 100%; height: clamp(76px, 9vw, 112px); border-radius: 999px; background: var(--yellow); color: var(--on-yellow);
+  display: flex; align-items: center; justify-content: center; gap: .5em; font-size: 1.55em; font-weight: 800; flex: none;
+  box-shadow: inset 0 -5px 0 var(--yellow-d); transition: transform .16s var(--ease), background .25s var(--ease), color .25s var(--ease); }
+.act-btn .ic { width: 1.05em; height: 1.05em; position: relative; }
+.act-btn span { position: relative; }
+.act-btn .act-fill { position: absolute; inset: 0; transform-origin: right; transform: scaleX(var(--p, 0)); background: #2fa8d533; transition: transform 1s linear; }
+.act-btn.on { background: #F5F8F2; color: var(--ink); box-shadow: inset 0 -5px 0 #d8ddd3, 0 0 0 6px #f5f8f214; }
+.act-btn.on .ic { color: var(--red); animation: pulse 1.4s infinite; }
+.act-btn:active { transform: scale(.97); }
+.mod-side .act-btn { margin-top: auto; }
+.grinder .mod-side .act-btn { margin: 0; height: clamp(96px, 12vw, 140px); font-size: 1.8em; }
 .switch { position: relative; width: 3.1em; height: 1.85em; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch i { position: absolute; inset: 0; background: var(--s3); border-radius: 999px; transition: .25s var(--ease); }
@@ -162,7 +177,8 @@ svg { width: 1em; height: 1em; flex: none; }
 .stat-v small { font-size: .9em; margin-left: .15em; color: var(--muted); }
 .d-buttons { display: flex; gap: var(--g); }
 .start-btn { flex: 1; height: clamp(64px, 7.5vw, 96px); border-radius: var(--r); background: var(--yellow); color: var(--on-yellow); font-size: 1.5em; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: .6em; transition: transform .16s var(--ease), opacity .2s var(--ease); }
-.start-btn .ic { font-size: .8em; }
+.start-btn .ic { width: .8em; height: .8em; }
+.stop-btn .ic { width: .8em; height: .8em; }
 .start-btn.dim { opacity: .45; }
 .stop-btn { width: clamp(64px, 7.5vw, 96px); border-radius: var(--r); background: var(--s2); color: var(--red); font-size: 1.6em; transition: transform .16s var(--ease); }
 .d-right { background: var(--bg); padding: var(--m) 0 var(--m) var(--m); display: flex; flex-direction: column; gap: var(--g); overflow: hidden; }

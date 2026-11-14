@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=12">
+<link rel="stylesheet" href="css/app.css?v=13">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -28,6 +28,11 @@
 <symbol id="i-go" viewBox="0 0 24 24"><path d="M19 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-grind" viewBox="0 0 24 24"><path d="M6.5 11h11l-1.6 9.2a1 1 0 0 1-1 .8H9.1a1 1 0 0 1-1-.8zM8 11a4 4 0 0 1 8 0M12 7V3.5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="3.5" r="1.4" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z" fill="currentColor"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="3" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.6" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6" fill="currentColor"/></symbol>
+<symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-tare" viewBox="0 0 24 24"><path d="M4 18h16M7 18l1.5-9h7L17 18M12 9V5.5M9.5 5.5h5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <div id="app">
 
@@ -166,8 +171,8 @@
           <button data-g="0">بدون طحن</button>
         </div>
         <div class="d-buttons">
-          <button class="start-btn" id="d-start"><span class="ic" id="d-start-ic">▶</span><span id="d-start-lbl">ابدأ</span></button>
-          <button class="stop-btn" id="d-stop" hidden>■</button>
+          <button class="start-btn" id="d-start"><svg class="ic" id="d-start-ic" aria-hidden="true"><use href="#i-play"/></svg><span id="d-start-lbl">ابدأ</span></button>
+          <button class="stop-btn" id="d-stop" hidden aria-label="وقّف"><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
         </div>
       </div>
       <div class="d-right">
@@ -185,7 +190,7 @@
         <div class="vcard" id="gr-size"></div>
         <div class="vcard" id="gr-rpm"></div>
       </div>
-      <div class="mod-side"><button class="round-btn big" id="gr-play">▶</button></div>
+      <div class="mod-side"><button class="act-btn" id="gr-play"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span>اطحن</span></button></div>
     </div>
   </section>
 
@@ -205,7 +210,7 @@
           <button data-pat="3"><i class="pat pat-3"></i>دائري</button>
           <button data-pat="2"><i class="pat pat-2"></i>حلزوني</button>
         </div>
-        <button class="round-btn" id="br-play">▶</button>
+        <button class="act-btn" id="br-play"><i class="act-fill"></i><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span>صبّ</span></button>
       </div>
     </div>
   </section>
@@ -213,14 +218,14 @@
   <!-- ============ SCALE ============ -->
   <section class="screen module-screen scale" id="scr-scale">
     <div class="mod-head"><button class="icon-btn back" data-mod-back="scale" aria-label="رجوع"><svg aria-hidden="true"><use href="#i-back"/></svg></button><span class="mod-ic"><svg aria-hidden="true"><use href="#i-clock"/></svg></span><h2>الميزان</h2>
-      <div class="readout num"><span id="sc-timer">00:00</span> <button class="round-btn tiny" id="sc-sw">▶</button></div></div>
+      <div class="readout num"><span id="sc-timer">00:00</span> <button class="round-btn tiny" id="sc-sw" aria-label="ساعة"><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg></button></div></div>
     <div class="mod-body">
       <div class="scale-card"><div class="scale-val num"><b id="sc-val">0.0</b><small id="sc-unit">g</small></div></div>
       <div class="mod-side">
         <div class="opt-list" id="sc-units">
           <button data-unit="g">g</button><button data-unit="oz">oz</button><button data-unit="ml">ml</button>
         </div>
-        <button class="round-btn" id="sc-tare">T</button>
+        <button class="act-btn" id="sc-tare"><svg class="ic" aria-hidden="true"><use href="#i-tare"/></svg><span>صفّر</span></button>
       </div>
     </div>
   </section>
@@ -267,8 +272,8 @@
         <div><small>الوقت</small><b class="num" id="bw-t">0:00</b></div>
       </div>
       <div class="brew-btns">
-        <button class="round-btn" id="bw-pause">❚❚</button>
-        <button class="round-btn danger" id="bw-stop">■</button>
+        <button class="round-btn" id="bw-pause" aria-label="وقّف مؤقت"><svg class="ic" aria-hidden="true"><use href="#i-pause"/></svg></button>
+        <button class="round-btn danger" id="bw-stop" aria-label="وقّف"><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
       </div>
     </div>
   </div>
@@ -327,11 +332,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=12"></script>
-<script src="js/cloud.js?v=12"></script>
-<script src="js/ble.js?v=12"></script>
-<script src="js/dots.js?v=12"></script>
-<script src="js/remedy-recipes.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/protocol.js?v=13"></script>
+<script src="js/cloud.js?v=13"></script>
+<script src="js/ble.js?v=13"></script>
+<script src="js/dots.js?v=13"></script>
+<script src="js/remedy-recipes.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>
