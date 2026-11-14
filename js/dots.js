@@ -4,38 +4,29 @@
   'use strict';
   const GROUND = '#131A14';
 
-  // The tablet runs all day: every scene has a frame cap (default 30 fps, the idle clock 15, home tiles 10),
-  // draws at most 1.5x the CSS pixels, and measures its canvas only when it resizes (ResizeObserver).
-  const DPR_MAX = 1.5;
   class Field {
     constructor(canvas, opts = {}) {
-      this.c = canvas; this.ctx = canvas.getContext('2d'); this.raf = 0; this.timer = 0; this.t0 = 0;
-      this.bg = opts.bg || GROUND; this.fps = opts.fps || 30;
-      this.box = null;
-      if (typeof ResizeObserver !== 'undefined') {
-        this.ro = new ResizeObserver((es) => { const r = es[0].contentRect; this.box = { width: r.width, height: r.height }; });
-        this.ro.observe(canvas);
-      }
+      this.c = canvas; this.ctx = canvas.getContext('2d'); this.raf = 0; this.t0 = 0;
+      this.bg = opts.bg || GROUND; this.fps = opts.fps || 0;
     }
     size() {
-      const dpr = Math.min(DPR_MAX, window.devicePixelRatio || 1), r = this.box || this.c.getBoundingClientRect();
-      const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
-      if (this.c.width !== W || this.c.height !== H) { this.c.width = W; this.c.height = H; }
+      const dpr = window.devicePixelRatio || 1, r = this.c.getBoundingClientRect();
+      if (this.c.width !== Math.round(r.width * dpr) || this.c.height !== Math.round(r.height * dpr)) {
+        this.c.width = Math.round(r.width * dpr); this.c.height = Math.round(r.height * dpr);
+      }
       return { w: this.c.width, h: this.c.height, dpr };
     }
     start(draw) {
-      this.halt();
+      this.stop();
       this.t0 = performance.now();
-      const gap = 1000 / this.fps;
+      let last = -1e9;
       const loop = (now) => {
-        this.raf = 0;
-        draw(this, now - this.t0);
-        this.timer = setTimeout(() => { this.raf = requestAnimationFrame(loop); }, Math.max(0, gap - (performance.now() - now)));
+        if (!this.fps || now - last >= 1000 / this.fps) { last = now; draw(this, now - this.t0); }
+        this.raf = requestAnimationFrame(loop);
       };
       this.raf = requestAnimationFrame(loop);
     }
-    halt() { cancelAnimationFrame(this.raf); clearTimeout(this.timer); this.raf = 0; this.timer = 0; }
-    stop() { this.halt(); if (this.ro) { this.ro.disconnect(); this.ro = null; } }
+    stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
     clear() {
       const { w, h } = this.size();
       if (this.bg === 'none') { this.ctx.clearRect(0, 0, w, h); return; }
@@ -47,17 +38,17 @@
   // Idle clock: big solid time in Concert One, and Al-Majnoon drifting his car around it.
   // The car is Remedy's real Majnoon in his yellow car, captured from the 3D figure on
   // remedy.sa (icons/majnoon-drive.png, side view facing right). Never redrawn in code.
-  const CAR = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/majnoon-drive.webp' }) : null;
+  const CAR = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/majnoon-drive.png' }) : null;
   const CAR_AR = 428 / 560;            // height / width of the picture
   const REAR = { x: 0.19, y: 0.95 };   // rear tyre contact point, as a fraction of the picture
   const FRONT = { x: 0.72, y: 0.95 };
   function clock(canvas) {
-    const f = new Field(canvas, { fps: 15 });
+    const f = new Field(canvas);
     let text = '';
     f.date = '';
     f.set = (hm) => { text = hm; };
     if (document.fonts && document.fonts.load) document.fonts.load('400 100px "Concert One"').catch(() => {});
-    const trail = { r: [], f: [] };   // tyre points per wheel
+    const trail = [];      // tyre points: {x, y, side}
     const smoke = [];      // puffs: {x, y, r, a, vx, vy}
     let last = 0, theta = Math.PI / 2;
 
@@ -100,7 +91,7 @@
         const wl = ctx.measureText(parts[0]).width, wc = ctx.measureText(':').width, wr = ctx.measureText(parts[1]).width;
         const x0 = cx0 - (wl + wc + wr) / 2;
         ctx.textAlign = 'left';
-        ctx.fillStyle = '#F4C700';   // solid capsule yellow; only the colon breathes
+        ctx.fillStyle = 'rgba(244,199,0,0.88)';
         ctx.fillText(parts[0], x0, cy0);
         ctx.fillText(parts[1], x0 + wl + wc, cy0);
         ctx.fillStyle = `rgba(244,199,0,${colonA})`;
@@ -136,14 +127,14 @@
       // tyres leave marks, the rear one smokes
       for (const [k, pt] of [['r', REAR], ['f', FRONT]]) {
         const [px, py] = carPoint(pt, x, y, W, H, face, tilt);
-        trail[k].push({ x: px, y: py });
+        trail.push({ x: px, y: py, side: k });
         if (k === 'r' && Math.random() < 0.35 * surge) smoke.push({ x: px, y: py, r: 8 * s, a: 0.1, vx: -dir * (0.3 + Math.random() * 0.4), vy: -Math.random() * 0.3 });
       }
-      for (const k of ['r', 'f']) if (trail[k].length > 280) trail[k].splice(0, trail[k].length - 280);
+      while (trail.length > 560) trail.shift();
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.lineWidth = 6 * s;
       for (const side of ['r', 'f']) {
-        const pts = trail[side];
+        const pts = trail.filter((p) => p.side === side);
         const chunk = 12;
         for (let i = 0; i < pts.length - 1; i += chunk) {
           ctx.strokeStyle = `rgba(245,248,242,${((i + chunk) / pts.length) * (side === 'r' ? 0.07 : 0.04)})`;
@@ -154,10 +145,11 @@
       }
       for (let i = smoke.length - 1; i >= 0; i--) {
         const p = smoke[i];
-        p.r += 0.4 * s * (dt / 16); p.a -= 0.0035 * (dt / 16); p.x += p.vx * (dt / 16); p.y += p.vy * (dt / 16);
+        p.r += 0.4 * s * (dt / 16); p.a -= 0.0035 * (dt / 16); p.x += p.vx; p.y += p.vy;
         if (p.a <= 0) { smoke.splice(i, 1); continue; }
-        ctx.fillStyle = `rgba(216,224,213,${p.a * 0.6})`;   // flat soft puff, no gradient per puff
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, `rgba(216,224,213,${p.a})`); g.addColorStop(1, 'rgba(216,224,213,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
       }
       drawCar(ctx, x, y, W, H, face, tilt);
     });
@@ -172,7 +164,7 @@
   const LINES = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5'];
   const POSE = {};
   for (const n of ['write', 'run', 'sleep', 'happy', 'glasses']) {
-    POSE[n] = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: `icons/majnoon-${n}.webp` }) : null;
+    POSE[n] = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: `icons/majnoon-${n}.png` }) : null;
   }
   const ready = (im) => im && im.complete && im.naturalWidth;
   // path() builds the shape; it gets a white sticker edge, the fill, then the ink line on top
@@ -465,7 +457,7 @@
       ctx.strokeStyle = PAPER; ctx.lineWidth = 1.4 * u; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(0, -1 * u); ctx.lineTo(0, -4 * u); ctx.stroke();
       ctx.restore();
-      if (on) { ctx.fillStyle = '#74B285'; ctx.beginPath(); ctx.arc(cx, bTop + 25 * u, 1.2 * u, 0, Math.PI * 2); ctx.fill(); }
+      if (on) { ctx.fillStyle = '#8FD694'; ctx.beginPath(); ctx.arc(cx, bTop + 25 * u, 1.2 * u, 0, Math.PI * 2); ctx.fill(); }
       // spout
       sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 3.5 * u, bBot - 1 * u, 7 * u, 6 * u, 1.5 * u); }, INK, { ink: 0.6 });
       // catch cup on the base
@@ -527,7 +519,7 @@
       // display
       sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 14 * u, baseTop + 2.6 * u, 28 * u, 7 * u, 1.8 * u); }, INK, { ink: 0.6 });
       ctx.save(); ctx.direction = 'ltr'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#74B285'; ctx.font = `700 ${5.2 * u}px "Roboto Condensed", sans-serif`;
+      ctx.fillStyle = '#8FD694'; ctx.font = `700 ${5.2 * u}px "Roboto Condensed", sans-serif`;
       ctx.fillText(Math.max(0, shown).toFixed(1) + 'g', cx, baseTop + 6.3 * u);
       ctx.restore();
       // plate
@@ -551,13 +543,13 @@
         ctx.fillStyle = LOL; ctx.strokeStyle = INK; ctx.lineWidth = 0.8 * u;
         ctx.beginPath(); ctx.ellipse(cx, mTop + 0.6 * u, 10.5 * u, 2 * u, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         // steam
-        ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.6 * u, 2);
-        for (const k of [-1, 0, 1]) {
-          const ph = (t / 1900 + (k + 1) / 3) % 1;
-          ctx.strokeStyle = `rgba(245,248,242,${0.32 * Math.sin(ph * Math.PI)})`;
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 1.5 * u;
+        for (const k of [-1, 1]) {
+          const ph = (t / 1700 + (k + 1) * 0.25) % 1;
+          ctx.strokeStyle = `rgba(245,248,242,${0.25 * Math.sin(ph * Math.PI)})`;
           ctx.beginPath();
-          for (let j = 0; j <= 18; j++) {   // one long S per strand (a full sine period), not a short hook
-            const yy = mTop - 3 * u - ph * 6 * u - j * 0.9 * u, xx = cx + k * 5 * u + Math.sin(j / 18 * Math.PI * 2 + k) * 1.8 * u;
+          for (let j = 0; j <= 10; j++) {
+            const yy = mTop - 3 * u - ph * 8 * u - j * 0.9 * u, xx = cx + k * 4.5 * u + Math.sin(j * 0.7 + t / 500 + k) * 1.8 * u;
             j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy);
           }
           ctx.stroke();
