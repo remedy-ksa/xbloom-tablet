@@ -2,18 +2,18 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#131A14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="description" content="لوحة تحكم لمكينة xBloom Studio بالبلوتوث، للتابلت">
-<title>ريمدي · xBloom</title>
+<title>ريمدي · لوحة التحضير</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=26">
+<link rel="stylesheet" href="css/app.css?v=27">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -48,10 +48,10 @@
   <!-- ============ HOME (tabs) ============ -->
   <section class="screen active" id="scr-home">
     <header class="statusbar">
-      <img class="sb-mark" src="icons/remedy-mark.svg" alt="ريمدي" width="40" height="40">
+      <div class="sb-brand"><img class="sb-mark" src="icons/remedy-mark.svg" alt="" width="40" height="40"><span class="en">remedy</span></div>
       <div class="sb-machine" id="sb-machine">
         <span class="dot" id="sb-dot"></span>
-        <span class="sb-name" id="sb-name">XBLOOM</span>
+        <span class="sb-name en" id="sb-name">XBLOOM</span>
         <span class="sb-state" id="sb-state">يبحث…</span>
       </div>
       <div class="sb-right">
@@ -65,24 +65,25 @@
       <div class="page active" id="page-home">
         <div class="home-grid">
           <div class="home-favs">
-            <div class="section-title"><span>المفضلة</span><button class="link" data-go-tab="recipes"><span>كل الوصفات</span><svg aria-hidden="true"><use href="#i-go"/></svg></button></div>
+            <div class="section-title"><h2>المفضلة</h2><button class="link" data-go-tab="recipes"><span>كل الوصفات</span><svg aria-hidden="true"><use href="#i-go"/></svg></button></div>
             <div class="fav-wrap">
               <div class="fav-row" id="fav-row"></div>
-              <div class="doc" aria-label="عدد أكواب اليوم">
-                <div class="board"><small>اليوم شربت</small><b class="num"><span>=</span> <span id="today-n">0</span></b><i id="today-w">أكواب</i></div>
-                <img class="doc-man" src="icons/majnoon-glasses.png" alt="" draggable="false">
+              <div class="doc">
+                <div class="board" role="status"><small>اليوم شربت</small><b id="today-n">0</b><i id="today-w">أكواب</i></div>
+                <img class="doc-man" src="icons/majnoon-glasses.webp" alt="" draggable="false">
+                <div class="bubble" id="doc-bubble" role="status" hidden></div>
               </div>
             </div>
           </div>
           <div class="modules">
             <button class="module grinder" data-open="grinder">
-              <span class="mod-dots"></span><canvas class="tile-art" id="tile-grinder" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-grinder"/></svg></span><span class="mod-name">الطاحونة</span><span class="mod-en">Grinder</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-grinder" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-grinder"/></svg></span><span class="mod-name">الطاحونة</span>
             </button>
             <button class="module brewer" data-open="brewer">
-              <span class="mod-dots"></span><canvas class="tile-art" id="tile-brewer" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-kettle"/></svg></span><span class="mod-name">التقطير</span><span class="mod-en">Drip</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-brewer" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-kettle"/></svg></span><span class="mod-name">التقطير</span>
             </button>
             <button class="module scale" data-open="scale">
-              <span class="mod-dots"></span><canvas class="tile-art" id="tile-scale" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-scale"/></svg></span><span class="mod-name">الميزان</span><span class="mod-en">Scale</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-scale" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-scale"/></svg></span><span class="mod-name">الميزان</span>
             </button>
           </div>
         </div>
@@ -91,13 +92,13 @@
       <!-- Recipes page -->
       <div class="page" id="page-recipes">
         <div class="rec-head">
-          <div class="seg" id="rec-seg">
+          <div class="seg" id="rec-seg" role="group" aria-label="نوع الوصفات">
             <button data-seg="remedy" class="on">ريمدي</button>
             <button data-seg="mine">وصفاتي</button>
             <button data-seg="shared">المشتركة</button>
             <button data-seg="starter">الأساسية</button>
           </div>
-          <button class="btn ghost" id="btn-new-recipe">＋ وصفة جديدة</button>
+          <button class="btn ghost" id="btn-new-recipe"><svg aria-hidden="true"><use href="#i-plus"/></svg><span>وصفة جديدة</span></button>
         </div>
         <div class="rec-grid" id="rec-grid"></div>
       </div>
@@ -106,14 +107,14 @@
       <div class="page" id="page-settings">
         <div class="settings">
           <div class="set-group">
-            <div class="set-title">المكينة</div>
+            <h2 class="set-title">المكينة</h2>
             <div class="set-row"><span>الحالة</span><span class="val" id="st-machine">غير متصلة</span></div>
             <div class="set-row"><span>الربط</span>
               <span class="val"><button class="btn small" id="btn-connect">اربط المكينة</button>
               <button class="btn small ghost" id="btn-forget">افصل وانسَ</button></span></div>
           </div>
           <div class="set-group">
-            <div class="set-title">عدّاد المكينة</div>
+            <h2 class="set-title">عدّاد المكينة</h2>
             <div class="counter">
               <div><small>الأكواب</small><b class="num" id="ct-cups">0</b></div>
               <div><small>الأيام</small><b class="num" id="ct-days">0</b></div>
@@ -124,7 +125,7 @@
             <div class="set-row"><span class="muted" id="ct-note"></span><button class="btn small ghost" id="btn-counter">حدّث من تطبيق xBloom</button></div>
           </div>
           <div class="set-group">
-            <div class="set-title">حساب اكس بلوم</div>
+            <h2 class="set-title">حساب اكس بلوم</h2>
             <div class="set-row"><span>الحساب</span><span class="val" id="st-acct">غير مسجّل</span></div>
             <div class="set-row"><span>المزامنة</span><span class="val"><span id="st-sync" class="muted"></span>
               <button class="btn small" id="btn-sync">زامن الحين</button>
@@ -132,7 +133,7 @@
               <button class="btn small ghost" id="btn-logout">اطلع</button></span></div>
           </div>
           <div class="set-group">
-            <div class="set-title">وصفاتي على هذا الجهاز</div>
+            <h2 class="set-title">وصفاتي على هذا الجهاز</h2>
             <div class="set-row"><span>الحفظ</span><span class="val" id="st-persist">…</span></div>
             <div class="set-row"><span>نسخة احتياطية <small class="muted" id="st-mine"></small></span>
               <span class="val"><button class="btn small" id="btn-export">نزّل نسخة</button>
@@ -140,18 +141,18 @@
             <input type="file" id="file-import" accept=".json,application/json" hidden>
           </div>
           <div class="set-group">
-            <div class="set-title">الشاشة</div>
+            <h2 class="set-title">الشاشة</h2>
             <div class="set-row"><span>الشاشة تبقى شغالة</span><label class="switch"><input type="checkbox" id="st-awake"><i></i></label></div>
             <div class="set-row"><span>الساعة تطلع بعد</span>
-              <div class="seg small" id="st-idle">
-                <button data-idle="1">دقيقة</button><button data-idle="3">3 دقايق</button><button data-idle="10">10 دقايق</button><button data-idle="0">أبداً</button>
+              <div class="seg small" id="st-idle" role="group" aria-label="الساعة تطلع بعد">
+                <button data-idle="1">دقيقة</button><button data-idle="3"><span class="num">3</span> دقايق</button><button data-idle="10"><span class="num">10</span> دقايق</button><button data-idle="0">أبداً</button>
               </div></div>
             <div class="set-row"><span>ملء الشاشة</span><button class="btn small" id="btn-fullscreen">شغّل</button></div>
           </div>
           <div class="set-group">
-            <div class="set-title">متقدم</div>
+            <h2 class="set-title">متقدم</h2>
             <div class="set-row"><span>طريقة الإرسال بالبلوتوث</span>
-              <div class="seg small" id="st-write">
+              <div class="seg small" id="st-write" role="group" aria-label="طريقة الإرسال">
                 <button data-write="auto">تلقائي</button><button data-write="whole">كامل</button><button data-write="chunk">مقطّع</button>
               </div></div>
             <div class="set-row"><span>وضع التجربة (مكينة وهمية)</span><label class="switch"><input type="checkbox" id="st-sim"><i></i></label></div>
@@ -184,17 +185,18 @@
         <div class="d-top">
           <button class="icon-btn back" data-back aria-label="رجوع"><svg aria-hidden="true"><use href="#i-back"/></svg></button>
           <div class="d-actions">
-            <button class="icon-btn" id="d-fav" aria-label="مفضلة">♡</button>
-            <button class="icon-btn" id="d-edit" aria-label="تعديل">✎</button>
+            <button class="icon-btn" id="d-fav" aria-label="مفضلة" aria-pressed="false"><svg aria-hidden="true"><use href="#i-heart"/></svg></button>
+            <button class="icon-btn" id="d-edit" aria-label="تعديل"><svg aria-hidden="true"><use href="#i-edit"/></svg></button>
           </div>
         </div>
+        <img class="d-box" id="d-box" alt="" hidden draggable="false">
         <h1 class="d-name" id="d-name"></h1>
         <div class="d-meta"><div class="d-sub" id="d-sub"></div><div class="d-kind" id="d-kind"></div></div>
         </div>
         <div class="d-stats">
           <div class="stat"><div class="stat-l" id="ds-l0">البن</div><div class="stat-v num"><b id="ds-v0">0</b><small id="ds-u0">g</small></div></div>
           <div class="stat"><div class="stat-l" id="ds-l1">الطحن</div><div class="stat-v num"><b id="ds-v1">0</b><small id="ds-u1"></small></div></div>
-          <div class="stat"><div class="stat-l" id="ds-l2">RPM</div><div class="stat-v num"><b id="ds-v2">0</b><small id="ds-u2"></small></div></div>
+          <div class="stat"><div class="stat-l" id="ds-l2">السرعة</div><div class="stat-v num"><b id="ds-v2">0</b><small id="ds-u2"></small></div></div>
         </div>
         <div class="seg grind-seg" id="d-grind" role="group" aria-label="الطحن">
           <button data-g="1">مع طحن</button>
@@ -235,7 +237,7 @@
         <div class="vcard" id="br-flow"></div>
       </div>
       <div class="mod-side">
-        <div class="opt-list" id="br-pattern">
+        <div class="opt-list" id="br-pattern" role="group" aria-label="نمط الصب">
           <button data-pat="1"><i class="pat pat-1"></i>وسط</button>
           <button data-pat="3"><i class="pat pat-3"></i>دائري</button>
           <button data-pat="2"><i class="pat pat-2"></i>حلزوني</button>
@@ -253,7 +255,7 @@
     <div class="mod-body">
       <div class="scale-card"><div class="scale-val num"><b id="sc-val">0.0</b><small id="sc-unit">g</small></div></div>
       <div class="mod-side">
-        <div class="opt-list" id="sc-units">
+        <div class="opt-list" id="sc-units" role="group" aria-label="الوحدة">
           <button data-unit="g">g</button><button data-unit="oz">oz</button><button data-unit="ml">ml</button>
         </div>
         <canvas class="mod-art" id="sc-art" aria-hidden="true"></canvas>
@@ -276,7 +278,7 @@
         <label class="field"><span>اسم الوصفة</span><input id="ed-name" maxlength="40" autocomplete="off"></label>
         <div class="field"><span>اللون</span><div class="swatches" id="ed-colors"></div></div>
         <div class="field"><span>نوع الكوب</span>
-          <div class="seg" id="ed-cup"><button data-cup="3">Other</button><button data-cup="2">Omni</button><button data-cup="1">xPod</button><button data-cup="4">Tea</button></div></div>
+          <div class="seg" id="ed-cup" role="group" aria-label="نوع الكوب"><button class="en" data-cup="3">Other</button><button class="en" data-cup="2">Omni</button><button class="en" data-cup="1">xPod</button><button class="en" data-cup="4">Tea</button></div></div>
         <div class="steppers">
           <div class="mini" id="ed-dose"></div>
           <div class="mini" id="ed-grind"></div>
@@ -285,7 +287,7 @@
         <div class="set-row plain"><span>تشغيل الطاحونة</span><label class="switch"><input type="checkbox" id="ed-grinder"><i></i></label></div>
       </div>
       <div class="ed-col pours-col">
-        <div class="section-title"><span>الصبّات</span><button class="btn small" id="ed-add-pour">＋ صبّة</button></div>
+        <div class="section-title"><span>الصبّات</span><button class="btn small" id="ed-add-pour"><svg aria-hidden="true"><use href="#i-plus"/></svg><span>صبّة</span></button></div>
         <div id="ed-pours"></div>
       </div>
     </div>
@@ -319,23 +321,23 @@
     </div>
   </div>
 
-  <div class="overlay clock" id="ov-clock" hidden><canvas id="clock-canvas"></canvas><div class="clock-date" id="clock-date"></div></div>
+  <div class="overlay clock" id="ov-clock" hidden><canvas id="clock-canvas"></canvas></div>
 
   <div class="modal" id="md-cup" hidden>
-    <div class="dialog">
-      <h3>حط الكوب</h3>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cup-title">
+      <h3 id="cup-title">حط الكوب</h3>
       <p>الوصفة انحملت على المكينة. حط كوبك على الميزان وبعدين ابدأ.</p>
       <div class="dlg-btns"><button class="btn" id="cup-cancel">إلغاء</button><button class="btn primary" id="cup-go">ابدأ التحضير</button></div>
     </div>
   </div>
 
   <div class="modal" id="md-login" hidden>
-    <form class="dialog" id="login-form" autocomplete="on">
-      <h3>حساب اكس بلوم</h3>
+    <form class="dialog" id="login-form" autocomplete="on" role="dialog" aria-modal="true" aria-labelledby="lg-title">
+      <h3 id="lg-title">حساب اكس بلوم</h3>
       <p>نفس الإيميل وكلمة المرور حق تطبيق xBloom. كلمة المرور ما تنحفظ: التابلت يحفظ جلسة الدخول بس، ولما تنتهي يطلب منك تدخل من جديد.</p>
       <input id="lg-email" type="email" placeholder="الإيميل" dir="ltr" autocomplete="username" required>
       <input id="lg-pass" type="password" placeholder="كلمة المرور" dir="ltr" autocomplete="current-password" required>
-      <div class="dlg-err" id="lg-err"></div>
+      <div class="dlg-err" id="lg-err" role="alert"></div>
       <div class="dlg-btns"><button type="button" class="btn" id="lg-cancel">إلغاء</button><button type="submit" class="btn primary" id="lg-go">دخول</button></div>
     </form>
   </div>
@@ -352,34 +354,34 @@
   </div>
 
   <div class="modal" id="md-confirm" hidden>
-    <div class="dialog">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cf-title" aria-describedby="cf-body">
       <h3 id="cf-title"></h3><p id="cf-body"></p>
       <div class="dlg-btns"><button class="btn" id="cf-no">إلغاء</button><button class="btn primary" id="cf-yes">تمام</button></div>
     </div>
   </div>
 
   <div class="modal" id="md-log" hidden>
-    <div class="dialog wide">
-      <h3>سجل البلوتوث</h3>
+    <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="log-title">
+      <h3 id="log-title">سجل البلوتوث</h3>
       <pre id="log-pre" dir="ltr"></pre>
       <div class="dlg-btns"><button class="btn" id="log-copy">انسخ</button><button class="btn primary" id="log-close">سكّر</button></div>
     </div>
   </div>
 
   <div class="connect-card" id="connect-card" hidden>
-    <div class="cc-icon">ᛒ</div>
+    <div class="cc-icon"><svg aria-hidden="true"><use href="#i-bt"/></svg></div>
     <div class="cc-text"><b>اربط مكينة اكس بلوم</b><span id="cc-sub">شغّل المكينة وقرّب التابلت منها، وبعدين اضغط اربط.</span></div>
     <button class="btn primary" id="cc-btn">اربط</button>
   </div>
 
-  <div class="toast" id="toast" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=26"></script>
-<script src="js/cloud.js?v=26"></script>
-<script src="js/ble.js?v=26"></script>
-<script src="js/dots.js?v=26"></script>
-<script src="js/remedy-recipes.js?v=26"></script>
-<script src="js/app.js?v=26"></script>
+<script src="js/protocol.js?v=27"></script>
+<script src="js/cloud.js?v=27"></script>
+<script src="js/ble.js?v=27"></script>
+<script src="js/dots.js?v=27"></script>
+<script src="js/remedy-recipes.js?v=27"></script>
+<script src="js/app.js?v=27"></script>
 </body>
 </html>

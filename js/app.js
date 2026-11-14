@@ -32,13 +32,13 @@
   const P = (ml, temp, pattern, pause, agitate = false, flow = 3.0) =>
     ({ name: '', volume_ml: ml, temp_c: temp, pattern, pause_s: pause, agitate_before: false, agitate_after: agitate, flow });
   const STARTERS = [
-    { uid: 's1', kind: 'starter', name: 'Daily Pour Over', cup_type: 3, dose_g: 15, grind_size: 45, rpm: 90, grinder_on: true, color: '#E2DBA6',
+    { uid: 's1', kind: 'starter', name: 'تقطير يومي', cup_type: 3, dose_g: 15, grind_size: 45, rpm: 90, grinder_on: true, color: '#E2DBA6',
       pours: [P(45, 93, 1, 30), P(95, 93, 2, 10), P(100, 93, 2, 0)] },
-    { uid: 's2', kind: 'starter', name: 'Light Roast', cup_type: 3, dose_g: 15, grind_size: 42, rpm: 100, grinder_on: true, color: '#E4A3A4',
+    { uid: 's2', kind: 'starter', name: 'تحميص فاتح', cup_type: 3, dose_g: 15, grind_size: 42, rpm: 100, grinder_on: true, color: '#E4A3A4',
       pours: [P(50, 96, 1, 35), P(105, 96, 2, 10), P(100, 96, 2, 0, false, 3.5)] },
-    { uid: 's3', kind: 'starter', name: 'Dark Roast', cup_type: 3, dose_g: 16, grind_size: 52, rpm: 80, grinder_on: true, color: '#E6C3A0',
+    { uid: 's3', kind: 'starter', name: 'تحميص غامق', cup_type: 3, dose_g: 16, grind_size: 52, rpm: 80, grinder_on: true, color: '#E6C3A0',
       pours: [P(40, 88, 1, 30), P(100, 88, 3, 10), P(100, 88, 3, 0)] },
-    { uid: 's4', kind: 'starter', name: 'Iced Pour Over', cup_type: 3, dose_g: 20, grind_size: 38, rpm: 90, grinder_on: true, color: '#B0BDE0',
+    { uid: 's4', kind: 'starter', name: 'تقطير بارد', cup_type: 3, dose_g: 20, grind_size: 38, rpm: 90, grinder_on: true, color: '#B0BDE0',
       pours: [P(50, 94, 1, 35), P(80, 94, 2, 10, true), P(70, 94, 1, 0)] },
   ];
   // The owner's two everyday recipes (from the xBloom app, Auto Mode A and B), pinned first on the home screen.
@@ -91,6 +91,12 @@
   const busy = () => S.flow !== 'idle' || S.grinding || S.pouring || sw.running;
 
   // ---------------------------------------------------------------- generic UI
+  // toggle buttons: aria-pressed always follows the .on class, wherever the code sets it (T9)
+  const PRESSABLE = '.seg button, .opt-list button, .chip, .swatches button, .grind-seg button';
+  const syncPressed = (b) => { const v = b.classList.contains('on') ? 'true' : 'false'; if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); };
+  new MutationObserver((ms) => { for (const m of ms) if (m.target.matches && m.target.matches(PRESSABLE)) syncPressed(m.target); })
+    .observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], subtree: true });
+  document.querySelectorAll(PRESSABLE).forEach(syncPressed);
   let toastTimer;
   function toast(msg) {
     const t = $('#toast');
@@ -257,14 +263,25 @@
     if (S.tab === 'settings') renderCounter();
     return true;
   }
+  function greet() {
+    if (store.get('greeted') === dayKey()) return;
+    store.set('greeted', dayKey());
+    const h = new Date().getHours();
+    const b = $('#doc-bubble');
+    b.textContent = h < 12 ? 'صباح الخير! وش نحضّر اليوم؟' : h < 17 ? 'هلا! وقت كوب؟' : 'مساء الخير! رجعت لنا؟';
+    b.hidden = false;
+    setTimeout(() => (b.hidden = true), 7000);
+  }
   function renderHome() {
     renderToday();
     const row = $('#fav-row');
     row.innerHTML = '';
     let list = lib.filter((p) => p.pinned).concat(lib.filter((p) => p.favorite && !p.pinned));
     if (!list.length) list = lib.filter((p) => p.kind === 'mine').concat(lib.filter((p) => p.kind !== 'mine')).slice(0, 6);
-    list.forEach((p) => row.appendChild(cardEl(p)));
+    list.forEach((p, i) => row.appendChild(grow(cardEl(p), i)));
   }
+  // cards grow in one after the other: 1600 ms each, 260 ms apart (Remedy's rhythm), the first few only
+  function grow(el, i) { el.classList.add('grow'); el.style.setProperty('--i', Math.min(i, 5)); return el; }
   function renderRecipes() {
     $$('#rec-seg button').forEach((b) => b.classList.toggle('on', b.dataset.seg === S.seg));
     const g = $('#rec-grid');
@@ -278,7 +295,7 @@
           : 'سجّل دخول بحساب اكس بلوم من الإعدادات عشان تنزل وصفاتك، أو سوّ وصفة جديدة.';
       g.appendChild(e);
     }
-    list.forEach((p) => g.appendChild(cardEl(p)));
+    list.forEach((p, i) => g.appendChild(grow(cardEl(p), i)));
   }
   $$('#rec-seg button').forEach((b) => b.addEventListener('click', () => { S.seg = b.dataset.seg; renderRecipes(); }));
 
@@ -302,7 +319,11 @@
     $('#d-kind').innerHTML = `${esc(KIND_NAME[p.kind] || '')} · <span class="${LATIN(p.line || CUP_NAME[p.cup_type]) ? 'en' : ''}">${esc(p.line || CUP_NAME[p.cup_type] || '')}</span>`;
     setName($('#d-name'), p.name);
     $('#d-sub').innerHTML = `<span class="num">${Number(totalWater(p))} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات${p.ice_g ? ` · ثلج <span class="num">${Number(p.ice_g)}g</span>` : ''}`;
-    $('#d-fav').textContent = p.favorite ? '♥' : '♡';
+    favIcon(p);
+    const box = $('#d-box');
+    if (p.crop && p.kind === 'remedy') { box.src = `icons/boxes/${p.crop}.webp`; box.alt = 'علبة ' + p.name.split(' · ')[0]; box.hidden = false; }
+    else { box.hidden = true; box.removeAttribute('src'); }
+    $('.d-head').classList.toggle('has-box', !box.hidden);
     const max = Math.max(...p.pours.map((q) => q.volume_ml), 1);
     const chart = $('#d-chart');
     chart.innerHTML = '';
@@ -343,7 +364,7 @@
       const grind = p.grinder_on && !prefs.noGrind;
       $$('#d-grind button').forEach((x) => { x.classList.toggle('on', (x.dataset.g === '1') === grind); x.disabled = !p.grinder_on; });
       setStat(1, 'الطحن', grind ? p.grind_size : 'بدون', '');
-      setStat(2, 'RPM', grind ? p.rpm : 'بدون', '');
+      setStat(2, 'السرعة', grind ? p.rpm : 'بدون', grind ? 'rpm' : '');
     }
     $$('#d-chart .col').forEach((c) => {
       const f = brewing ? Math.max(0, Math.min(1, (S.water - +c.dataset.cum) / +c.dataset.vol)) : 0;
@@ -387,10 +408,14 @@
     if (S.active === S.cur && S.flow !== 'idle') return toast('غيّرها قبل ما تحمّل الوصفة');
     prefs.noGrind = b.dataset.g === '0'; savePrefs(); refreshDetail();
   }));
+  function favIcon(p) {
+    $('#d-fav use').setAttribute('href', p.favorite ? '#i-heart-fill' : '#i-heart');
+    $('#d-fav').setAttribute('aria-pressed', p.favorite ? 'true' : 'false');
+  }
   $('#d-fav').addEventListener('click', () => {
     const p = find(S.cur); if (!p) return;
     p.favorite = !p.favorite; saveLib();
-    $('#d-fav').textContent = p.favorite ? '♥' : '♡';
+    favIcon(p);
   });
   $('#d-edit').addEventListener('click', () => openEditor(S.cur));
   $('[data-back]').addEventListener('click', () => { show('home'); setTab(S.tab); });
@@ -507,8 +532,8 @@
   function valueCard(el, o, onChange) {
     let v = o.value;
     const dec = o.step < 1 ? 1 : 0;
-    el.innerHTML = `<div class="vl"><span>${o.label}</span><small>${o.unitLabel || ''}</small></div>
-      <button class="step minus">−</button><div class="vv"><span class="n"></span><span class="vx">${o.unit || ''}</span></div><button class="step plus">+</button>
+    el.innerHTML = `<div class="vl"><span>${o.label}</span></div>
+      <button class="step minus" aria-label="أقل: ${o.label}"><svg aria-hidden="true"><use href="#i-minus"/></svg></button><div class="vv" aria-live="polite"><span class="n"></span><span class="vx">${o.unit || ''}</span></div><button class="step plus" aria-label="أكثر: ${o.label}"><svg aria-hidden="true"><use href="#i-plus"/></svg></button>
       ${o.hint ? '<div class="hint"></div>' : ''}`;
     const n = el.querySelector('.n'), h = el.querySelector('.hint');
     const render = () => { n.textContent = v.toFixed(dec); if (h) h.textContent = o.hint(v); };
@@ -534,10 +559,10 @@
   const mod = Object.assign({ gSize: 40, gRpm: 90, bVol: 200, bTemp: 93, bFlow: 3.0, bPat: 2, unit: 'g' }, store.get('mod', {}));
   const saveMod = () => store.set('mod', mod);
   const grindUse = (s) => (s <= 12 ? 'إسبريسو' : s <= 24 ? 'موكا بوت' : s <= 32 ? 'إيروبرس' : s <= 55 ? 'تقطير / V60' : s <= 70 ? 'فرنش برس' : 'كولد برو');
-  valueCard($('#gr-size'), { label: 'درجة الطحن', unitLabel: 'Level', min: 1, max: 80, step: 1, value: mod.gSize, hint: grindUse }, (v, rel) => {
+  valueCard($('#gr-size'), { label: 'درجة الطحن', min: 1, max: 80, step: 1, value: mod.gSize, hint: grindUse }, (v, rel) => {
     mod.gSize = v; saveMod(); if (rel && S.screen === 'grinder') link.cmd('grinderEnter', mod.gSize, mod.gRpm);
   });
-  valueCard($('#gr-rpm'), { label: 'سرعة الطاحونة', unitLabel: 'RPM', min: 60, max: 120, step: 10, value: mod.gRpm }, (v, rel) => {
+  valueCard($('#gr-rpm'), { label: 'سرعة الطاحونة', unit: 'rpm', min: 60, max: 120, step: 10, value: mod.gRpm }, (v, rel) => {
     mod.gRpm = v; saveMod(); if (rel && S.screen === 'grinder') link.cmd('grinderEnter', mod.gSize, mod.gRpm);
   });
   // big start/stop capsules on the module screens: icon + word, never a bare glyph
@@ -640,7 +665,7 @@
   let ed = null;  // working copy
   function miniStepper(el, o, get, set) {
     const dec = o.step < 1 ? 1 : 0;
-    el.innerHTML = `<div class="ml">${o.label}</div><div class="mrow"><button class="m-">−</button><span class="mv"><span class="n"></span><small>${o.unit || ''}</small></span><button class="m+">+</button></div>`;
+    el.innerHTML = `<div class="ml">${o.label}</div><div class="mrow"><button class="m-" aria-label="أقل: ${o.label}"><svg aria-hidden="true"><use href="#i-minus"/></svg></button><span class="mv"><span class="n"></span><small>${o.unit || ''}</small></span><button class="m+" aria-label="أكثر: ${o.label}"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div>`;
     const n = el.querySelector('.n');
     const render = () => (n.textContent = o.fmt ? o.fmt(get()) : get().toFixed(dec));
     const step = (d) => { let v = Math.min(o.max, Math.max(o.min, +(get() + d * o.step).toFixed(dec))); set(v); render(); edSummary(); };
@@ -686,7 +711,7 @@
     const [lo, hi] = XB.doseRange(ed.cup_type);
     miniStepper($('#ed-dose'), { label: 'البن', unit: 'g', min: lo, max: hi, step: 0.5, fmt: fmtNum }, () => ed.dose_g, (v) => (ed.dose_g = v));
     miniStepper($('#ed-grind'), { label: 'الطحن', min: 1, max: 80, step: 1 }, () => ed.grind_size, (v) => (ed.grind_size = v));
-    miniStepper($('#ed-rpm'), { label: 'RPM', min: 60, max: 120, step: 10 }, () => ed.rpm, (v) => (ed.rpm = v));
+    miniStepper($('#ed-rpm'), { label: 'السرعة', unit: 'rpm', min: 60, max: 120, step: 10 }, () => ed.rpm, (v) => (ed.rpm = v));
     $('#ed-grind').classList.toggle('off', !ed.grinder_on);
     $('#ed-rpm').classList.toggle('off', !ed.grinder_on);
   }
@@ -729,7 +754,7 @@
   function edSummary() {
     if (!ed) return;
     const err = XB.validate(toMachine(ed));
-    $('#ed-summary').innerHTML = `${totalWater(ed)} ml · 1:${fmtNum(ratio(ed))}` + (err ? ` · <span style="color:var(--red)">${err}</span>` : '');
+    $('#ed-summary').innerHTML = `${Number(totalWater(ed))} ml · 1:${fmtNum(ratio(ed))}` + (err ? ` · <span style="color:var(--stop)">${esc(err)}</span>` : '');
   }
   $('#ed-cancel').addEventListener('click', () => { ed = null; S.cur && find(S.cur) ? openDetail(S.cur) : (show('home'), setTab(S.tab)); });
   $('#ed-save').addEventListener('click', async () => {
@@ -1157,6 +1182,7 @@
   // ---------------------------------------------------------------- start
   loadLib();
   setTab('home');
+  setTimeout(greet, 1600);
   tickClock();
   renderStatus();
   keepAwake();
