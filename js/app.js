@@ -98,9 +98,41 @@
     S.screen = screen;
     updateConnectCard();
   }
+  // floating bar: the notch and the yellow circle spring to the chosen tab and hop a little
+  const tb = { x: -1, vx: 0, y: 0, vy: 0, raf: 0, last: 0, target: 0 };
+  function moveTabDot(jump) {
+    const holder = $('#tb-holder'), btn = $(`.tb-row button[data-tab="${S.tab}"]`);
+    if (!holder || !btn || !holder.offsetWidth) return;
+    const hr = holder.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    tb.target = br.left - hr.left + br.width / 2;
+    $('#tb-dot use').setAttribute('href', btn.querySelector('use').getAttribute('href'));
+    const dot = parseFloat(getComputedStyle(holder).getPropertyValue('--tb-dot')) || 50;
+    const notch = parseFloat(getComputedStyle(holder).getPropertyValue('--tb-notch')) || 33;
+    const paint = () => {
+      const m = `radial-gradient(circle ${notch}px at ${tb.x}px -4px, transparent 95%, #000 100%)`;
+      for (const el of [$('#tb-glass'), $('#tb-shade')]) { el.style.maskImage = m; el.style.webkitMaskImage = m; }
+      $('#tb-dot').style.transform = `translate(${tb.x - dot / 2}px, ${tb.y}px)`;
+    };
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cancelAnimationFrame(tb.raf);
+    if (tb.x < 0 || still || !jump) { tb.x = tb.target; tb.y = 0; tb.vx = 0; tb.vy = 0; paint(); return; }
+    tb.vy -= 380; tb.last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.032, (now - tb.last) / 1000); tb.last = now;
+      tb.vx += (-140 * (tb.x - tb.target) - 18 * tb.vx) * dt; tb.x += tb.vx * dt;
+      tb.vy += (-200 * tb.y - 16 * tb.vy) * dt; tb.y += tb.vy * dt;
+      paint();
+      if (Math.abs(tb.x - tb.target) < 0.3 && Math.abs(tb.vx) < 3 && Math.abs(tb.y) < 0.3 && Math.abs(tb.vy) < 3) { tb.x = tb.target; tb.y = 0; paint(); return; }
+      tb.raf = requestAnimationFrame(step);
+    };
+    tb.raf = requestAnimationFrame(step);
+  }
+  addEventListener('resize', () => moveTabDot(false));
   function setTab(tab) {
+    const jump = S.tab !== tab;
     S.tab = tab;
-    $$('.tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+    $$('.tb-row button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+    requestAnimationFrame(() => moveTabDot(jump));
     $$('.page').forEach((p) => p.classList.toggle('active', p.id === 'page-' + tab));
     if (tab === 'recipes') renderRecipes();
     if (tab === 'settings') renderSettings();

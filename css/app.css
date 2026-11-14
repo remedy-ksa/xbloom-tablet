@@ -47,14 +47,28 @@ svg { width: 1em; height: 1em; flex: none; }
 
 /* ---------- pages + tabbar ---------- */
 .pages { flex: 1; position: relative; overflow: hidden; }
-.page { position: absolute; inset: 0; display: none; padding: var(--g) var(--m); overflow-y: auto; }
+.page { position: absolute; inset: 0; display: none; padding: var(--g) var(--m) calc(var(--tb-h) + var(--g)); overflow-y: auto; }
 .page.active { display: block; }
-.tabbar { display: flex; justify-content: center; gap: clamp(20px, 6vw, 90px); background: var(--s1); border-top: 1px solid var(--s2); padding: .55em 0 calc(.55em + env(safe-area-inset-bottom)); }
-.tabbar button { display: flex; flex-direction: column; align-items: center; gap: .2em; color: var(--muted); font-size: .85em; min-width: 7em; padding: .1em 0; transition: color .2s var(--ease), transform .16s var(--ease); }
-.tabbar svg { width: 3.8em; height: 2.1em; padding: .32em 1.1em; border-radius: 999px; transition: background .25s var(--ease), color .25s var(--ease); }
-.tabbar button.on { color: var(--text); }
-.tabbar button.on svg { background: var(--yellow); color: var(--on-yellow); }
-.tabbar button:active { transform: scale(.97); }
+/* floating glass bar, same build as the Azwa app: a notch above the chosen tab, its icon in a circle
+   that springs across when you switch. Remedy colours: dark glass, yellow circle. */
+:root { --tb-dot: 50px; --tb-notch: 33px; --tb-h: calc(var(--tb-dot) / 2 + 74px + env(safe-area-inset-bottom)); }
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; justify-content: center; padding: 0 16px calc(14px + env(safe-area-inset-bottom)); pointer-events: none; }
+.tb-holder { position: relative; width: 100%; max-width: 560px; padding-top: calc(var(--tb-dot) / 2); pointer-events: auto; }
+.tb-glass, .tb-shade { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--tb-dot) / 2); border-radius: 999px; }
+.tb-glass { background: rgba(28, 37, 29, .78); border: 1px solid rgba(245, 248, 242, .09); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); }
+.tb-shade { inset: calc(var(--tb-dot) / 2 + 6px) 6px -8px; filter: blur(14px); opacity: .55; }
+.tb-shade i { display: block; height: 100%; border-radius: 999px; background: #000; }
+.tb-row { position: relative; display: flex; padding: 7px; }
+.tb-row button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 54px; border-radius: 999px; color: var(--muted); transition: transform .16s var(--ease); }
+.tb-row svg { width: 26px; height: 26px; transition: opacity .18s var(--ease); }
+.tb-row span { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.tb-row button.on { color: var(--yellow); }
+.tb-row button.on svg { opacity: 0; }
+.tb-row button.on span { font-weight: 800; margin-top: 2px; }
+.tb-row button:active { transform: scale(.95); }
+.tb-dot { position: absolute; left: 0; top: 0; width: var(--tb-dot); height: var(--tb-dot); border-radius: 50%; background: var(--yellow); color: var(--on-yellow);
+  display: grid; place-items: center; box-shadow: 0 4px 14px #f4c70047, inset 0 1px 0 #ffffff40; pointer-events: none; }
+.tb-dot svg { width: 25px; height: 25px; }
 
 .section-title { display: flex; justify-content: space-between; align-items: center; font-size: 1.2em; color: var(--text); margin: .2em 0 .7em; }
 .link { display: inline-flex; align-items: center; gap: .4em; color: var(--body); font-size: .75em; background: var(--s1); border-radius: 999px; padding: .45em .9em .45em .75em; transition: transform .16s var(--ease); }
@@ -63,21 +77,22 @@ svg { width: 1em; height: 1em; flex: none; }
 
 /* ---------- home ---------- */
 .home-grid { display: grid; grid-template-rows: auto 1fr; gap: var(--g); height: 100%; }
-.fav-row { display: flex; gap: var(--g); overflow-x: auto; padding: 4px 4px 6px; margin: -4px -4px 0; scrollbar-width: none; }
+.fav-row { display: flex; gap: var(--g); overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; }
 .fav-row::-webkit-scrollbar { display: none; }
-.fav-row .card { flex: 0 0 clamp(190px, 22vw, 300px); }
+.fav-row .card { flex: 0 0 clamp(190px, 22vw, 300px); scroll-snap-align: start; }
 /* the sober doctor (Majnoon with his glasses, from remedy.sa) next to a chalkboard with today's cups */
-.fav-wrap { display: flex; gap: var(--g); align-items: flex-end; }
-.fav-wrap .fav-row { flex: 1; min-width: 0; }
-.doc { flex: none; display: flex; align-items: flex-end; gap: .2em; height: 10em; padding-bottom: 6px; }
-.board { height: 8.6em; min-width: 14em; padding: .5em 1.4em; border-radius: 12px; background: var(--green); border: 6px solid var(--yellow);
-  box-shadow: 0 0 0 2px var(--ink), 0 0 0 4.5px #F5F8F2, 0 8px 18px #0006; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5F8F2; line-height: 1.1; }
+.fav-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g); }
+.fav-wrap .fav-row { grid-column: span 2; min-width: 0; }
+.fav-wrap .fav-row .card { flex-basis: calc((100% - var(--g)) / 2); }
+.doc { position: relative; display: flex; height: 10em; min-width: 0; }
+.board { flex: 1; min-width: 0; padding: .4em 1em .4em 6.6em; border-radius: var(--r); background: var(--green); border: 5px solid var(--yellow);
+  box-shadow: inset 0 0 0 2px var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5F8F2; line-height: 1.1; }
 .board small { font-size: 1.05em; font-weight: 800; opacity: .9; }
 .board b { font-family: 'Concert One', sans-serif; font-weight: 400; font-size: 3.2em; direction: ltr; color: var(--yellow); }
 .board b span:first-child { color: #F5F8F2; opacity: .75; font-size: .7em; }
 .board i { font-style: normal; font-size: .95em; opacity: .8; }
-.doc-man { height: 9.6em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
-@media (max-width: 700px) { .doc { display: none; } }
+.doc-man { position: absolute; left: .3em; bottom: .25em; height: 9.2em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
+@media (max-width: 700px) { .doc { display: none; } .fav-wrap .fav-row { grid-column: 1 / -1; } }
 .fav-empty { color: var(--muted); padding: 2em 0; }
 .modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g); min-height: 11em; }
 .module { position: relative; border-radius: var(--r); padding: 1.2em 1.3em; text-align: right; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; overflow: hidden; background: var(--s1); border: 1px solid var(--s2); transition: transform .16s var(--ease), border-color .2s var(--ease); }
@@ -358,7 +373,7 @@ svg { width: 1em; height: 1em; flex: none; }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover, .seg button:hover, .chip:hover, .opt-list button:hover { filter: brightness(1.12); }
   .module:hover { border-color: currentColor; }
-  .tabbar button:hover { color: var(--text); }
+  .tb-row button:hover { color: var(--text); }
   .link:hover { color: var(--text); }
   .icon-btn:hover, .round-btn:hover, .start-btn:hover, .vcard .step:hover { filter: brightness(1.08); }
 }

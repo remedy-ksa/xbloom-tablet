@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=20">
+<link rel="stylesheet" href="css/app.css?v=21">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -156,10 +156,17 @@
       </div>
     </div>
 
-    <nav class="tabbar">
-      <button data-tab="home" class="on"><svg aria-hidden="true"><use href="#i-home"/></svg><span>الرئيسية</span></button>
-      <button data-tab="recipes"><svg aria-hidden="true"><use href="#i-jar"/></svg><span>الوصفات</span></button>
-      <button data-tab="settings"><svg aria-hidden="true"><use href="#i-more"/></svg><span>الإعدادات</span></button>
+    <nav class="tabbar" aria-label="التبويبات">
+      <div class="tb-holder" id="tb-holder">
+        <div class="tb-shade" aria-hidden="true"><i id="tb-shade"></i></div>
+        <div class="tb-glass" id="tb-glass" aria-hidden="true"></div>
+        <div class="tb-row">
+          <button data-tab="home" class="on"><svg aria-hidden="true"><use href="#i-home"/></svg><span>الرئيسية</span></button>
+          <button data-tab="recipes"><svg aria-hidden="true"><use href="#i-jar"/></svg><span>الوصفات</span></button>
+          <button data-tab="settings"><svg aria-hidden="true"><use href="#i-more"/></svg><span>الإعدادات</span></button>
+        </div>
+        <div class="tb-dot" id="tb-dot" aria-hidden="true"><svg><use href="#i-home"/></svg></div>
+      </div>
     </nav>
   </section>
 
@@ -351,11 +358,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=20"></script>
-<script src="js/cloud.js?v=20"></script>
-<script src="js/ble.js?v=20"></script>
-<script src="js/dots.js?v=20"></script>
-<script src="js/remedy-recipes.js?v=20"></script>
-<script src="js/app.js?v=20"></script>
+<script src="js/protocol.js?v=21"></script>
+<script src="js/cloud.js?v=21"></script>
+<script src="js/ble.js?v=21"></script>
+<script src="js/dots.js?v=21"></script>
+<script src="js/remedy-recipes.js?v=21"></script>
+<script src="js/app.js?v=21"></script>
 </body>
 </html>
