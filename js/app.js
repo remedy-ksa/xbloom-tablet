@@ -779,7 +779,7 @@
       } else if (!prefs.awake && wakeLock) { await wakeLock.release(); wakeLock = null; }
     } catch (e) { /* not allowed right now; retry on next visibility change */ }
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); if (link.state === 'idle' && link.restore) link.restore(); } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); if (link.state === 'idle' && link.restore) link.restore(); else if (link.state !== 'connected' && link.tryReconnect) link.tryReconnect(0); } });
 
   setInterval(() => {
     tickClock();
