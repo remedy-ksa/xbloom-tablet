@@ -22,6 +22,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 input { font: inherit; }
 svg { width: 1em; height: 1em; flex: none; }
 .num { font-family: var(--num); font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.en { font-family: 'Concert One', var(--font); font-weight: 400; unicode-bidi: isolate; }
 .muted { color: var(--muted); }
 [hidden] { display: none !important; }
 #app { position: fixed; inset: 0; }
@@ -116,12 +117,11 @@ svg { width: 1em; height: 1em; flex: none; }
 .card:active { transform: scale(.985); }
 
 /* ---------- recipe cards (background colour comes from the recipe) ---------- */
-.card { position: relative; border-radius: var(--r); padding: .85em 1em; color: var(--ink); height: 10em; display: grid; grid-template-rows: auto 1fr auto; text-align: center; transition: transform .16s var(--ease); overflow: hidden; }
-.card .c-name { order: 1; align-self: center; font-weight: 800; font-size: 1.45em; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 0 .2em; }
-/* cup + kind sit under the name, never above it */
-.card .c-top { order: 0; display: flex; justify-content: space-between; align-items: center; font-size: .8em; opacity: .7; min-height: 1.4em; }
-.card .c-meta { order: 2; font-size: .85em; opacity: .75; font-family: var(--num); font-weight: 700; direction: ltr; text-align: center; }
-.card .c-heart { font-size: 1.2em; line-height: 1; }
+.card { position: relative; border-radius: var(--r); padding: .85em 1em; color: var(--ink); height: 10em; display: grid; grid-template-rows: 1fr auto; text-align: center; transition: transform .16s var(--ease); overflow: hidden; }
+.card .c-name { align-self: center; font-weight: 700; font-size: 1.45em; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; padding: 0 .9em; }
+/* one line under the name (never a tag above it): line or cup · dose · ratio · grind, in full ink */
+.card .c-meta { font-size: max(13px, .85em); color: var(--ink); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .c-heart { position: absolute; top: .7em; left: .75em; width: 1.05em; height: 1.05em; color: var(--ink); }
 .card .c-dirty { position: absolute; top: .8em; left: .8em; width: .5em; height: .5em; border-radius: 50%; background: #1a22198c; }
 .card.active-brew { outline: 3px solid var(--text); outline-offset: 3px; }
 .rec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--g); gap: 1em; }

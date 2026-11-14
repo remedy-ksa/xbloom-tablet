@@ -158,7 +158,9 @@
 
   // ---- Remedy drawing kit -------------------------------------------------------------
   // Same look as Majnoon on remedy.sa: flat fills, one cel shade, dark ink line, white sticker edge.
-  const INK = '#1A2219', PAPER = '#F5F8F2', YEL = '#F4C700', YEL_SH = '#D8B200', LOL = '#DE9457', LOL_SH = '#B8743F';
+  // Coffee is Lol's screen colour. No brown on screen (brown is Lol's print colour only): the shade on the coffee
+  // is a see-through ink layer over the same colour.
+  const INK = '#1A2219', PAPER = '#F5F8F2', YEL = '#F4C700', YEL_SH = '#D8B200', LOL = '#DE9457', SHADE = 'rgba(26,34,25,.22)';
   const LINES = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5'];
   const POSE = {};
   for (const n of ['write', 'run', 'sleep', 'happy', 'glasses']) {
@@ -241,7 +243,7 @@
             ctx.beginPath(); ctx.moveTo(L - 4 * u, ah);
             for (let x = L - 4 * u; x <= Rr + 4 * u; x += 2 * u) ctx.lineTo(x, fillTop + Math.sin(t / 380 + x / (5 * u)) * 0.8 * u * (live ? 1 : 0.3));
             ctx.lineTo(Rr + 4 * u, ah); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = LOL_SH;                                                     // cel shade on the coffee
+            ctx.fillStyle = SHADE;                                                      // cel shade on the coffee
             ctx.beginPath(); ctx.ellipse(Rr + 2 * u, cBot, belly * 0.42, (cBot - fillTop) + 4 * u, 0, 0, Math.PI * 2); ctx.fill();
           }
           // glass glints: a long curved one on the left belly, a dot near the top
@@ -299,7 +301,8 @@
       // coffee bed in the dripper, once there is coffee
       if (v.grinding || v.pouring || level > 0.01) {
         const bed = () => { ctx.beginPath(); ctx.ellipse(sx, dy0 - 3 * u, dTopW * 0.4, 2.6 * u, 0, Math.PI, 0); ctx.closePath(); };
-        ctx.fillStyle = v.pouring ? LOL_SH : LOL; bed(); ctx.fill();
+        ctx.fillStyle = LOL; bed(); ctx.fill();
+        if (v.pouring) { ctx.fillStyle = SHADE; bed(); ctx.fill(); }
       }
       sticker(ctx, u, rim, YEL);
       // grounds falling in while grinding
@@ -429,11 +432,12 @@
       };
       sticker(ctx, u, hopper, 'rgba(245,248,242,0.12)', {
         shade: () => {
-          ctx.fillStyle = LOL_SH; ctx.fillRect(cx - 16 * u, hTop + 7 * u, 32 * u, 16 * u);
+          ctx.fillStyle = LOL; ctx.fillRect(cx - 16 * u, hTop + 7 * u, 32 * u, 16 * u);
+          ctx.fillStyle = SHADE; ctx.fillRect(cx - 16 * u, hTop + 7 * u, 32 * u, 16 * u);
           ctx.strokeStyle = INK; ctx.lineWidth = 0.6 * u;
           for (let k = 0; k < 14; k++) {
             const bx = cx + ((k * 37) % 26 - 13) * u * 0.9, by = hTop + 8 * u + ((k * 53) % 10) * u + (on ? Math.sin(t / 60 + k) * 0.4 * u : 0);
-            ctx.fillStyle = k % 3 ? LOL : '#C98247';
+            ctx.fillStyle = LOL;
             ctx.beginPath(); ctx.ellipse(bx, by, 2 * u, 1.4 * u, k, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
           }
           ctx.strokeStyle = 'rgba(245,248,242,0.55)'; ctx.lineWidth = 1.6 * u; ctx.lineCap = 'round';
@@ -471,7 +475,7 @@
           ctx.fillStyle = LOL;
           ctx.beginPath(); ctx.moveTo(cx0 - 12 * u, cBot + u); ctx.lineTo(cx0 - 12 * u, gTop + 1.5 * u);
           ctx.quadraticCurveTo(cx0, gTop - 2 * u, cx0 + 12 * u, gTop + 1.5 * u); ctx.lineTo(cx0 + 12 * u, cBot + u); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = LOL_SH; ctx.fillRect(cx0 + 3 * u, gTop, 8 * u, cBot - gTop + u);
+          ctx.fillStyle = SHADE; ctx.fillRect(cx0 + 3 * u, gTop, 8 * u, cBot - gTop + u);
           ctx.strokeStyle = 'rgba(245,248,242,0.5)'; ctx.lineWidth = 1.4 * u; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(cx0 - 6 * u, cTop + 3 * u); ctx.lineTo(cx0 - 5.5 * u, cBot - 4 * u); ctx.stroke();
         },

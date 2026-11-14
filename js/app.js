@@ -15,11 +15,13 @@
   const SIM = new URLSearchParams(location.search).has('sim') || prefs.sim;
 
   // ---------------------------------------------------------------- recipes
-  const CARD_COLORS = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5', '#A9C99A', '#EFEBE2'];
+  // the six line colours (screen versions), Remedy's sweet green and the Din cream
+  const CARD_COLORS = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5', '#A9CBA7', '#EFEBE2'];
+  const DEFAULT_COLOR = '#A9CBA7';
   const PAT_NAME = { 1: 'وسط', 2: 'حلزوني', 3: 'دائري' };
   const CUP_NAME = { 1: 'xPod', 2: 'Omni', 3: 'Other', 4: 'Tea' };
   const KIND_NAME = { mine: 'وصفاتي', shared: 'مشتركة', starter: 'أساسية', remedy: 'ريمدي' };
-  const BUILTIN = (p) => p.kind === 'starter' || p.kind === 'remedy';   // shipped with the app, not saved
+  const BUILTIN = (p) => p.kind === 'starter' || p.kind === 'remedy' || !!p.pinned;   // shipped with the app, not saved
   const REMEDY = window.REMEDY_RECIPES || [];
   const P = (ml, temp, pattern, pause, agitate = false, flow = 3.0) =>
     ({ name: '', volume_ml: ml, temp_c: temp, pattern, pause_s: pause, agitate_before: false, agitate_after: agitate, flow });
@@ -34,11 +36,12 @@
       pours: [P(50, 94, 1, 35), P(80, 94, 2, 10, true), P(70, 94, 1, 0)] },
   ];
   // The owner's two everyday recipes (from the xBloom app, Auto Mode A and B), pinned first on the home screen.
+  // They are his own ("وصفاتي"), not Remedy recipes: the "ريمدي" tab is only the 26 published ones.
   // BP (boiling point) is sent as 98, the machine's top temperature.
   const PINNED = [
-    { uid: 'h-cold-sweet', kind: 'remedy', pinned: true, name: 'cold sweet 15 Grinder', cup_type: 2, dose_g: 15, grind_size: 15, rpm: 120, grinder_on: true, color: '#2FA8D5',
+    { uid: 'h-cold-sweet', kind: 'mine', pinned: true, crop: null, name: 'cold sweet 15 Grinder', cup_type: 2, dose_g: 15, grind_size: 15, rpm: 120, grinder_on: true, color: '#2FA8D5',
       pours: [P(5, 98, 1, 10), P(35, 98, 3, 59), P(35, 98, 2, 20), P(30, 98, 2, 5)] },
-    { uid: 'h-jelly', kind: 'remedy', pinned: true, name: 'jelly', cup_type: 2, dose_g: 18, grind_size: 40, rpm: 120, grinder_on: true, color: '#F4C700',
+    { uid: 'h-jelly', kind: 'mine', pinned: true, crop: null, name: 'jelly', cup_type: 2, dose_g: 18, grind_size: 40, rpm: 120, grinder_on: true, color: '#F4C700',
       pours: [P(35, 90, 3, 15), P(40, 90, 2, 20), P(42, 90, 2, 5)] },
   ];
   let lib = [];
@@ -69,6 +72,8 @@
   const link = SIM ? new XBLink.SimLink() : new XBLink.BleLink(store);
   const acct = new XBCloud.Account(store);
   let syncing = false, lastSync = store.get('lastSync', 0), syncErr = '';
+  // background sync: every 15 min when it works; after a failure wait 1, 2, 4 … 30 min; stop when the session ends
+  let syncFails = 0, nextSync = lastSync + 15 * 60000;
 
   // ---------------------------------------------------------------- state
   const S = {
@@ -87,11 +92,28 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 4000);
   }
   $('#toast').addEventListener('click', () => ($('#toast').hidden = true));
+  // dialogs: focus moves into the dialog and goes back to where it was when it closes
+  const modalReturn = new Map();
+  function openModal(sel, focusSel) {
+    const m = $(sel);
+    if (!m.hidden) return;
+    modalReturn.set(m, document.activeElement);
+    m.hidden = false;
+    const f = focusSel ? $(focusSel) : m.querySelector('.btn.primary') || m.querySelector('button, input');
+    if (f) setTimeout(() => f.focus({ preventScroll: true }), 30);
+  }
+  function closeModal(sel) {
+    const m = $(sel);
+    if (m.hidden) return;
+    m.hidden = true;
+    const r = modalReturn.get(m); modalReturn.delete(m);
+    if (r && r.focus && document.contains(r)) r.focus({ preventScroll: true });
+  }
   function confirmBox(title, body, ok, action) {
     $('#cf-title').textContent = title; $('#cf-body').textContent = body; $('#cf-yes').textContent = ok;
-    $('#md-confirm').hidden = false;
-    $('#cf-yes').onclick = () => { $('#md-confirm').hidden = true; action(); };
-    $('#cf-no').onclick = () => ($('#md-confirm').hidden = true);
+    openModal('#md-confirm');
+    $('#cf-yes').onclick = () => { closeModal('#md-confirm'); action(); };
+    $('#cf-no').onclick = () => closeModal('#md-confirm');
   }
   // the three machine drawings in the home tiles: drawn only while the home page is on screen
   let tileFx = [];
@@ -173,15 +195,20 @@
   }
 
   // ---------------------------------------------------------------- cards
+  const LATIN = (s) => !/[\u0600-\u06FF]/.test(s || '');
+  // text into an element; Latin-only names (cup types, older recipe names) get the English face, Concert One
+  function setName(el, s) { el.textContent = s; el.classList.toggle('en', LATIN(s)); }
   function cardEl(p) {
     const b = document.createElement('button');
     b.className = 'card' + (S.active === p.uid && S.flow !== 'idle' ? ' active-brew' : '');
-    b.style.background = p.color || '#C9D5B8';
-    b.innerHTML = `<div class="c-top"><span>${p.line || CUP_NAME[p.cup_type] || ''} · ${KIND_NAME[p.kind]}</span><span class="c-heart">${p.favorite ? '♥' : ''}</span></div>
-      <div class="c-name"></div>
-      <div class="c-meta">${fmtNum(p.dose_g)}g · 1:${fmtNum(ratio(p))} · ${p.grinder_on ? 'G' + p.grind_size : 'no grind'}</div>
-      ${p.dirty ? '<span class="c-dirty" title="مو محفوظة في الحساب"></span>' : ''}`;
-    b.querySelector('.c-name').textContent = p.name;
+    b.style.background = p.color || DEFAULT_COLOR;
+    b.innerHTML = `<div class="c-name"></div><div class="c-meta"><span class="c-tag"></span> · <span class="num"></span><span class="c-ng"></span></div>`
+      + (p.favorite ? '<svg class="c-heart" role="img" aria-label="مفضلة"><use href="#i-heart-fill"/></svg>' : '')
+      + (p.dirty ? '<span class="c-dirty" title="مو محفوظة في الحساب"></span>' : '');
+    setName(b.querySelector('.c-name'), p.name);
+    setName(b.querySelector('.c-tag'), p.line || CUP_NAME[p.cup_type] || '');
+    b.querySelector('.c-meta .num').textContent = `${fmtNum(p.dose_g)}g · 1:${fmtNum(ratio(p))}` + (p.grinder_on ? ` · G${Number(p.grind_size)}` : '');
+    b.querySelector('.c-ng').textContent = p.grinder_on ? '' : ' · بدون طحن';
     b.addEventListener('click', () => openDetail(p.uid));
     return b;
   }
@@ -245,7 +272,7 @@
   function buildDetail() {
     const p = find(S.cur);
     if (!p) return;
-    const col = p.color || '#C9D5B8';
+    const col = p.color || DEFAULT_COLOR;
     $('#d-left').style.background = col;
     $('#scr-detail').style.setProperty('--fill', col);
     $('#d-kind').textContent = `${KIND_NAME[p.kind]} · ${p.line || CUP_NAME[p.cup_type]}`;
@@ -317,7 +344,7 @@
     if (S.active === S.cur) {
       if (S.flow === 'brewing') return cmdResult('pause', await link.pause());
       if (S.flow === 'paused') return cmdResult('resume', await link.resume());
-      if (S.flow === 'loaded') { $('#md-cup').hidden = false; return; }
+      if (S.flow === 'loaded') { openModal('#md-cup'); return; }
       return;
     }
     if (S.flow !== 'idle') return toast('فيه وصفة ثانية على المكينة');
@@ -344,12 +371,12 @@
   $('[data-back]').addEventListener('click', () => { show('home'); setTab(S.tab); });
 
   $('#cup-cancel').addEventListener('click', async () => {
-    $('#md-cup').hidden = true;
+    closeModal('#md-cup');
     S.flow = 'idle'; S.active = null; refreshDetail();
     await link.quitRecipe();
   });
   $('#cup-go').addEventListener('click', async () => {
-    $('#md-cup').hidden = true;
+    closeModal('#md-cup');
     S.flow = 'starting'; refreshDetail();
     cmdResult('execute', await link.execute());  // the only path that starts a recipe brew
   });
@@ -366,7 +393,7 @@
     }
     if (type === 'load') {
       S.flow = 'loaded';
-      if (S.screen === 'detail' && S.cur === S.active) $('#md-cup').hidden = false;
+      if (S.screen === 'detail' && S.cur === S.active) openModal('#md-cup');
     } else if (type === 'execute') {
       if (S.flow !== 'brewing') { S.flow = 'brewing'; S.water = 0; S.brewStart = Date.now(); brewStarted(); }
     } else if (type === 'stop') brewEnded();
@@ -596,7 +623,7 @@
     };
     ed.srcUid = uid;
     $('#ed-title').textContent = uid ? 'تعديل الوصفة' : 'وصفة جديدة';
-    $('#ed-delete').hidden = !(src && src.kind === 'mine');
+    $('#ed-delete').hidden = !(src && src.kind === 'mine' && !BUILTIN(src));
     $('#ed-name').value = ed.name;
     $('#ed-colors').innerHTML = '';
     CARD_COLORS.forEach((c) => {
@@ -678,7 +705,7 @@
     if (err) return toast(err);
     let p;
     const src = ed.srcUid ? find(ed.srcUid) : null;
-    if (src && src.kind === 'mine') {
+    if (src && src.kind === 'mine' && !BUILTIN(src)) {
       Object.assign(src, ed, { srcUid: undefined, uid: src.uid, kind: 'mine' });
       p = src;
     } else {
@@ -704,26 +731,37 @@
   });
 
   // ---------------------------------------------------------------- account sync
+  const isExpired = (e) => e instanceof XBCloud.Expired;
   async function pushRecipe(p) {
     try {
       const id = await acct.push(p);
       p.id = id; p.dirty = false; saveLib();
       if (S.screen === 'detail') buildDetail();
-    } catch (e) { toast('ما انحفظت في حساب اكس بلوم: ' + e.message); }
+    } catch (e) {
+      toast(isExpired(e) ? 'انتهت جلسة اكس بلوم. الوصفة محفوظة هنا، وبتنرفع للحساب بعد ما تسجّل دخول.' : 'ما انحفظت في حساب اكس بلوم: ' + e.message);
+      renderSettings();
+    }
   }
+  function askLogin() { $('#lg-err').textContent = ''; $('#lg-email').value = acct.email || ''; openModal('#md-login', '#lg-email'); }
   async function sync(manual) {
     if (!acct.signedIn || syncing) return;
+    if (acct.expired) { syncErr = 'انتهت الجلسة'; if (manual) askLogin(); return; }
     if (!navigator.onLine) { if (manual) toast('ما فيه إنترنت'); return; }
     syncing = true; syncErr = ''; renderStatus(); renderSettings();
     try {
-      for (const p of lib.filter((x) => x.dirty)) await pushRecipe(p);
+      for (const p of lib.filter((x) => x.dirty)) {   // unsaved edits go up first; one failed recipe doesn't stop the rest
+        try { p.id = await acct.push(p); p.dirty = false; saveLib(); } catch (e) { if (isExpired(e)) throw e; }
+      }
       const list = await acct.sync();
       mergeAccount(list);
       lastSync = Date.now(); store.set('lastSync', lastSync);
+      syncFails = 0; nextSync = lastSync + 15 * 60000;
       if (manual) toast(`تمت المزامنة: ${list.length} وصفة`);
     } catch (e) {
-      syncErr = e.message;
-      if (manual) toast('ما زبطت المزامنة: ' + e.message);
+      syncFails += 1;
+      nextSync = Date.now() + Math.min(30, 2 ** (syncFails - 1)) * 60000;
+      syncErr = isExpired(e) ? 'انتهت الجلسة' : e.message;
+      if (manual) { if (isExpired(e)) askLogin(); else toast('ما زبطت المزامنة: ' + e.message); }
     }
     syncing = false;
     renderStatus(); renderSettings();
@@ -739,7 +777,7 @@
       c.dirty = false;
       return c;
     });
-    const localOnly = lib.filter((p) => p.kind === 'mine' && !p.id);
+    const localOnly = lib.filter((p) => p.kind === 'mine' && !p.id && !BUILTIN(p));
     const starters = lib.filter(BUILTIN);
     lib = [...localOnly, ...fresh, ...starters];
     saveLib();
@@ -831,10 +869,10 @@
     renderBackup();
     $('#st-machine').textContent = link.connected ? link.name : { connecting: 'يتصل…', searching: 'يبحث عن ' + (link.name || 'المكينة') + '…' }[link.state] || 'غير مربوطة';
     $('#btn-forget').hidden = !link.name;
-    $('#st-acct').textContent = acct.signedIn ? acct.email : 'غير مسجّل';
-    $('#btn-login').hidden = acct.signedIn;
+    $('#st-acct').textContent = acct.signedIn ? acct.email + (acct.expired ? ' · انتهت الجلسة' : '') : 'غير مسجّل';
+    $('#btn-login').hidden = acct.signedIn && !acct.expired;
     $('#btn-logout').hidden = !acct.signedIn;
-    $('#btn-sync').hidden = !acct.signedIn;
+    $('#btn-sync').hidden = !acct.signedIn || acct.expired;
     $('#btn-sync').disabled = syncing;
     $('#st-sync').textContent = syncing ? 'يزامن…' : syncErr ? 'خطأ: ' + syncErr
       : lastSync ? 'آخر مزامنة ' + new Date(lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -854,17 +892,18 @@
   }
   $('#btn-forget').addEventListener('click', () => confirmBox('تفصل المكينة؟', 'بتحتاج تربطها من جديد بعدين.', 'افصل', () => { link.forget(); renderSettings(); updateConnectCard(); }));
   $('#btn-sync').addEventListener('click', () => sync(true));
-  $('#btn-login').addEventListener('click', () => { $('#lg-err').textContent = ''; $('#md-login').hidden = false; $('#lg-email').focus(); });
-  $('#lg-cancel').addEventListener('click', () => ($('#md-login').hidden = true));
+  $('#btn-login').addEventListener('click', askLogin);
+  $('#lg-cancel').addEventListener('click', () => closeModal('#md-login'));
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     $('#lg-go').disabled = true; $('#lg-err').textContent = '';
     try {
       await acct.login($('#lg-email').value.trim(), $('#lg-pass').value);
-      $('#md-login').hidden = true; $('#lg-pass').value = '';
+      closeModal('#md-login'); $('#lg-pass').value = '';
+      syncFails = 0; syncErr = '';
       renderSettings();
       await sync(true);
-    } catch (err) { $('#lg-err').textContent = err.message; }
+    } catch (err) { $('#lg-err').textContent = err.message; $('#lg-pass').value = ''; }
     $('#lg-go').disabled = false;
   });
   $('#btn-logout').addEventListener('click', () => confirmBox('تطلع من الحساب؟', 'وصفات الحساب بتنشال من التابلت.', 'اطلع', () => {
@@ -875,8 +914,8 @@
   $$('#st-idle button').forEach((b) => b.addEventListener('click', () => { prefs.idleMin = +b.dataset.idle; savePrefs(); renderSettings(); }));
   $$('#st-write button').forEach((b) => b.addEventListener('click', () => { link.setWriteMode(b.dataset.write); renderSettings(); }));
   $('#btn-fullscreen').addEventListener('click', () => document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}));
-  $('#btn-log').addEventListener('click', () => { $('#log-pre').textContent = link.logLines.join('\n') || '(فاضي)'; $('#md-log').hidden = false; });
-  $('#log-close').addEventListener('click', () => ($('#md-log').hidden = true));
+  $('#btn-log').addEventListener('click', () => { $('#log-pre').textContent = link.logLines.join('\n') || '(فاضي)'; openModal('#md-log'); });
+  $('#log-close').addEventListener('click', () => closeModal('#md-log'));
   $('#log-copy').addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(link.logLines.join('\n')).then(() => toast('انسخ')); });
   $('#btn-new-recipe').addEventListener('click', () => openEditor(null));
 
@@ -988,7 +1027,7 @@
     }
     if (!busy() && prefs.idleMin > 0 && idle > prefs.idleMin * 60000) showClock();
     if (!$('#ov-clock').hidden) tickIdleClock();
-    if (acct.signedIn && !syncing && Date.now() - lastSync > 15 * 60000 && !busy()) sync(false);
+    if (acct.signedIn && !acct.expired && !syncing && Date.now() >= nextSync && !busy()) sync(false);
     updateConnectCard();
   }, 500);
 
@@ -1007,7 +1046,7 @@
   renderStatus();
   keepAwake();
   link.restore();
-  if (acct.signedIn) setTimeout(() => sync(false), 1500);
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
-  window.__panel = { S, link, lib: () => lib, acct };  // for debugging in the console
+  if (acct.signedIn && !acct.expired) setTimeout(() => sync(false), 1500);
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (new URLSearchParams(location.search).has('debug')) window.__panel = { S, link, lib: () => lib };  // console debugging, ?debug=1 only
 })();

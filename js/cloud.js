@@ -165,12 +165,16 @@
     return d;
   }
 
+  // The password is sent once to sign in and never stored: only the session (memberId + token) is kept.
+  // When xBloom ends the session, the account is marked expired and the panel asks for the password again.
   class Account {
     constructor(store) {
       this.store = store;               // {get(k), set(k,v)}
-      this.s = store.get('acct') || null; // {email, password, memberId, token}
+      this.s = store.get('acct') || null; // {email, memberId, token, expired?}
+      if (this.s && 'password' in this.s) { delete this.s.password; this.save(); }  // older versions kept it
     }
     get signedIn() { return !!(this.s && this.s.email); }
+    get expired() { return !!(this.s && (this.s.expired || !this.s.token)); }
     get email() { return this.s ? this.s.email : ''; }
     save() { this.store.set('acct', this.s); }
 
@@ -179,18 +183,17 @@
       if (!r || r.result !== 'success') throw new Error((r && msgOf(r)) || 'الإيميل أو كلمة المرور غلط');
       const id = r.member && r.member.tableId;
       if (id == null || !r.token) throw new Error('اكس بلوم ما رجّع جلسة دخول');
-      this.s = { email, password, memberId: Number(id), token: r.token };
+      this.s = { email, memberId: Number(id), token: r.token };
       this.save();
     }
     signOut() { this.s = null; this.save(); }
 
     async withRelogin(fn) {
       if (!this.s) throw new Error('سجّل دخول أول');
-      if (!this.s.token) await this.login(this.s.email, this.s.password);
+      if (this.expired) throw new Expired('انتهت الجلسة، سجّل دخول من جديد');
       try { return await fn(); } catch (e) {
-        if (!(e instanceof Expired) || !this.s.password) throw e;
-        await this.login(this.s.email, this.s.password);
-        return fn();
+        if (e instanceof Expired) { this.s.expired = true; this.save(); }
+        throw e;
       }
     }
     async encrypted(endpoint, obj) { return post(endpoint, '"' + encryptBody(JSON.stringify(obj)) + '"'); }
