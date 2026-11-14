@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=10">
+<link rel="stylesheet" href="css/app.css?v=11">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -91,6 +91,17 @@
             <div class="set-row"><span>الربط</span>
               <span class="val"><button class="btn small" id="btn-connect">اربط المكينة</button>
               <button class="btn small ghost" id="btn-forget">افصل وانسَ</button></span></div>
+          </div>
+          <div class="set-group">
+            <div class="set-title">عدّاد المكينة</div>
+            <div class="counter">
+              <div><small>الأكواب</small><b class="num" id="ct-cups">0</b></div>
+              <div><small>الأيام</small><b class="num" id="ct-days">0</b></div>
+              <div><small>في اليوم</small><b class="num" id="ct-day">0</b></div>
+              <div><small>في الأسبوع</small><b class="num" id="ct-week">0</b></div>
+              <div><small>في الشهر</small><b class="num" id="ct-month">0</b></div>
+            </div>
+            <div class="set-row"><span class="muted" id="ct-note"></span><button class="btn small ghost" id="btn-counter">حدّث من تطبيق xBloom</button></div>
           </div>
           <div class="set-group">
             <div class="set-title">حساب اكس بلوم</div>
@@ -316,11 +327,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=10"></script>
-<script src="js/cloud.js?v=10"></script>
-<script src="js/ble.js?v=10"></script>
-<script src="js/dots.js?v=10"></script>
-<script src="js/remedy-recipes.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/protocol.js?v=11"></script>
+<script src="js/cloud.js?v=11"></script>
+<script src="js/ble.js?v=11"></script>
+<script src="js/dots.js?v=11"></script>
+<script src="js/remedy-recipes.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
 </body>
 </html>

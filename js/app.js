@@ -652,7 +652,33 @@
   }
 
   // ---------------------------------------------------------------- settings + login
+  // ---------------------------------------------------------------- machine counter
+  // Starts from the numbers in the xBloom app (cups made, days in use) and adds every brew
+  // this panel finishes. Brews started from the machine's knobs or the phone are not seen here,
+  // so tap "update" now and then with the app's numbers.
+  const counter = Object.assign({ cups: 2223, days: 374, at: Date.parse('2026-11-14T12:00:00+03:00') }, store.get('counter', {}));
+  const saveCounter = () => store.set('counter', counter);
+  function renderCounter() {
+    const days = counter.days + Math.max(0, Math.floor((Date.now() - counter.at) / 86400000));
+    const perDay = days > 0 ? counter.cups / days : 0;
+    const one = (x) => (Math.round(x * 10) / 10).toString();
+    $('#ct-cups').textContent = counter.cups.toLocaleString('en-US');
+    $('#ct-days').textContent = days.toLocaleString('en-US');
+    $('#ct-day').textContent = one(perDay);
+    $('#ct-week').textContent = one(perDay * 7);
+    $('#ct-month').textContent = Math.round(perDay * 30.44).toString();   // average month
+    $('#ct-note').textContent = 'من أرقام تطبيق xBloom، ويزيد مع كل كوب من اللوحة';
+  }
+  $('#btn-counter').addEventListener('click', () => {
+    const c = parseInt(prompt('كم كوب مكتوب في تطبيق xBloom؟', counter.cups), 10);
+    if (!(c > 0)) return;
+    const d = parseInt(prompt('وكم يوم؟', counter.days + Math.max(0, Math.floor((Date.now() - counter.at) / 86400000))), 10);
+    if (!(d > 0)) return;
+    Object.assign(counter, { cups: c, days: d, at: Date.now() }); saveCounter(); renderCounter();
+  });
+
   function renderSettings() {
+    renderCounter();
     $('#st-machine').textContent = link.connected ? link.name : { connecting: 'يتصل…', searching: 'يبحث عن ' + (link.name || 'المكينة') + '…' }[link.state] || 'غير مربوطة';
     $('#btn-forget').hidden = !link.name;
     $('#st-acct').textContent = acct.signedIn ? acct.email : 'غير مسجّل';
@@ -743,6 +769,7 @@
     refreshDetail(); renderStatus();
   });
   link.on('done', () => {
+    if (!SIM) { counter.cups += 1; saveCounter(); }
     const p = find(S.active);
     const ml = S.water > 0 ? S.water : p ? totalWater(p) : 0;
     const ms = S.brewStart ? Date.now() - S.brewStart : 0;
