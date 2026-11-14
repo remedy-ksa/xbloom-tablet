@@ -92,8 +92,9 @@ svg { width: 1em; height: 1em; flex: none; }
   box-shadow: inset 0 0 0 2px var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5F8F2; line-height: 1.1; }
 .board small { font-size: 1.05em; font-weight: 800; opacity: .9; }
 .board b { font-family: 'Concert One', sans-serif; font-weight: 400; font-size: 3.2em; direction: ltr; color: var(--yellow); }
-.board b span:first-child { color: #F5F8F2; opacity: .75; font-size: .7em; }
-.board i { font-style: normal; font-size: .95em; opacity: .8; }
+/* «اليوم شربت ٠ كوب»: الرقم والكلمة سطر واحد، بلا «=» (المالك ١٥ نوفمبر) */
+.board-n { display: flex; align-items: baseline; justify-content: center; gap: .3em; line-height: 1.1; }
+.board i { font-style: normal; font-size: 1.35em; font-weight: 800; opacity: .9; }
 .doc-man { position: absolute; left: .3em; bottom: .25em; height: 8em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
 @media (max-width: 700px) { .doc { display: none; } .fav-wrap .fav-row { grid-column: 1 / -1; } }
 .fav-empty { color: var(--muted); padding: 2em 0; }
