@@ -1,8 +1,8 @@
 // Offline cache: the panel opens without internet (recipes are stored on the tablet).
 // VERSION is the one number for a release: scripts/bump.sh writes it here and in every ?v= in index.html.
-const VERSION = 32;
+const VERSION = 34;
 const CACHE = 'xbp-v' + VERSION;
-const FILES = ['./', 'index.html', 'css/app.css', 'js/protocol.js', 'js/cloud.js', 'js/ble.js', 'js/dots.js', 'js/remedy-recipes.js', 'js/app.js',
+const FILES = ['./', 'index.html', 'css/app.css', 'css/fonts.css', 'fonts/baloo-arabic.woff2', 'fonts/baloo-latin.woff2', 'fonts/concert-one-latin.woff2', 'js/protocol.js', 'js/cloud.js', 'js/ble.js', 'js/dots.js', 'js/remedy-recipes.js', 'js/app.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/remedy-mark.svg', 'icons/majnoon.png', 'icons/majnoon-drive.png', 'icons/majnoon-write.png', 'icons/majnoon-run.png',
   'icons/majnoon-sleep.png', 'icons/majnoon-happy.png', 'icons/majnoon-glasses.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 const NET_WAIT_MS = 3000;   // "connected but no internet" wifi: fall back to the cache after this long

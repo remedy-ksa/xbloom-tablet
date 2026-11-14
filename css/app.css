@@ -10,8 +10,8 @@
   --ink: #1A2219;
   --r: 20px; --r-sm: 14px; --m: clamp(16px, 2.2vw, 32px); --g: clamp(10px, 1.4vw, 20px);
   --ease: cubic-bezier(.33, 1, .68, 1);
-  --font: 'Concert One', 'Baloo Bhaijaan 2', system-ui, sans-serif;
-  --num: 'Roboto Condensed', 'Baloo Bhaijaan 2', system-ui, sans-serif;
+  --font: 'Concert One', 'Baloo Bhaijaan 2', system-ui, sans-serif; /* اللاتيني Concert One والعربي Baloo (هوية ريمدي) */
+  --num: 'Concert One', 'Baloo Bhaijaan 2', system-ui, sans-serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -194,11 +194,11 @@ svg { width: 1em; height: 1em; flex: none; }
 .d-head .icon-btn { background: #1a22191f; color: var(--ink); }
 .d-name { color: var(--ink); font-size: clamp(28px, 3.2vw, 46px); line-height: 1.2; margin: auto 0 .2em; font-weight: 800; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .d-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .45em; opacity: .75; font-size: 1em; }
-.d-kind::before { content: '·'; margin-inline-end: .45em; }
+.d-kind { width: 100%; }
 .counter { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5em; margin: .4em 0 .6em; }
 .counter div { background: var(--s2); border-radius: 14px; padding: .7em .5em; text-align: center; display: flex; flex-direction: column; gap: .2em; }
 .counter small { color: var(--muted); font-size: .8em; }
-.counter b { font-size: 1.6em; color: var(--text); font-family: 'Roboto Condensed', sans-serif; }
+.counter b { font-size: 1.6em; color: var(--text); font-family: var(--num); }
 @media (max-width: 600px) { .counter { grid-template-columns: repeat(3, 1fr); } }
 .grind-seg { display: flex; width: 100%; }
 .grind-seg button { flex: 1; font-weight: 700; padding: .6em 1em; }
@@ -417,7 +417,7 @@ svg { width: 1em; height: 1em; flex: none; }
 
 /* علبة المحصول 3D (المالك ١٤ نوفمبر): في صفحة الوصفة وعلى بطاقات وصفات ريمدي */
 .d-box { position: absolute; left: 4%; bottom: 0; height: 74%; max-height: 210px; width: auto; pointer-events: none; filter: drop-shadow(0 8px 10px #1a221955); }
-.d-head.has-box .d-name, .d-head.has-box .d-meta { margin-left: min(38%, 120px); }
+.d-head.has-box .d-name, .d-head.has-box .d-meta, .d-head.has-box .d-ice { margin-left: 42%; }
 .card.has-box { padding-inline-end: 4.7em; padding-inline-start: .5em; }
 .card.has-box .c-name { padding: 0 .1em; font-size: 1.32em; }
 .card.has-box .c-meta { font-size: max(12px, .78em); }
@@ -428,3 +428,4 @@ svg { width: 1em; height: 1em; flex: none; }
 .start-btn, .act-btn { gap: .42em; }
 .start-btn .ic, .act-btn .ic { flex: none; transform: translateX(-.04em); }
 [dir="rtl"] .start-btn .ic use[href="#i-play"], [dir="rtl"] .act-btn .ic use[href="#i-play"] { transform: scaleX(-1); transform-origin: 12px 12px; }
+.d-ice { margin-top: .35em; font-size: .95em; font-weight: 700; color: var(--ink); }

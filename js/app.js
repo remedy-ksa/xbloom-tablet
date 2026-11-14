@@ -64,7 +64,8 @@
   }
   const find = (uid) => lib.find((p) => p.uid === uid);
   const totalWater = (p) => p.pours.reduce((t, q) => t + q.volume_ml, 0);
-  const ratio = (p) => (p.dose_g > 0 ? Math.round((totalWater(p) / p.dose_g) * 10) / 10 : 0);
+  /* النسبة على الكوب كله: ماء المكينة + الثلج (المالك ١٤ نوفمبر: الباردة كانت تطلع ١:٧) */
+  const ratio = (p) => (p.dose_g > 0 ? Math.round(((totalWater(p) + (Number(p.ice_g) || 0)) / p.dose_g) * 10) / 10 : 0);
   const fmtNum = (x) => (Math.round(x * 10) / 10).toString();
   // forBrew: apply the quick "without grinding" switch (pre-ground coffee) without touching the saved recipe
   function toMachine(p, forBrew = false) {
@@ -309,7 +310,9 @@
     $('#scr-detail').style.setProperty('--fill', col);
     $('#d-kind').innerHTML = `${esc(KIND_NAME[p.kind] || '')} · <span class="${LATIN(p.line || CUP_NAME[p.cup_type]) ? 'en' : ''}">${esc(p.line || CUP_NAME[p.cup_type] || '')}</span>`;
     setName($('#d-name'), p.name);
-    $('#d-sub').innerHTML = `<span class="num">${Number(totalWater(p))} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات${p.ice_g ? ` · ثلج <span class="num">${Number(p.ice_g)}g</span>` : ''}`;
+    $('#d-sub').innerHTML = `<span class="num">${Number(totalWater(p))} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات`;
+    /* الثلج سطر لحاله: «حط ١٢٠ جم ثلج في الكوب» تعليمة للزبون، مو رقم وسط الأرقام */
+    const ice = $('#d-ice'); ice.hidden = !p.ice_g; if (p.ice_g) ice.innerHTML = `حط <span class="num">${Number(p.ice_g)}g</span> ثلج في الكوب`;
     $('#d-fav').textContent = p.favorite ? '♥' : '♡';
     const box = $('#d-box');
     if (p.crop && p.kind === 'remedy') { box.src = `icons/boxes/${p.crop}.webp`; box.alt = 'علبة ' + p.name.split(' · ')[0]; box.hidden = false; }
