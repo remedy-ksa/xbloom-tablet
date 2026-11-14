@@ -527,7 +527,7 @@
       // display
       sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 14 * u, baseTop + 2.6 * u, 28 * u, 7 * u, 1.8 * u); }, INK, { ink: 0.6 });
       ctx.save(); ctx.direction = 'ltr'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#74B285'; ctx.font = `700 ${5.2 * u}px "Roboto Condensed", sans-serif`;
+      ctx.fillStyle = '#74B285'; ctx.font = `400 ${5.2 * u}px "Concert One", sans-serif`;
       ctx.fillText(Math.max(0, shown).toFixed(1) + 'g', cx, baseTop + 6.3 * u);
       ctx.restore();
       // plate
