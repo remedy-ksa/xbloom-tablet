@@ -33,13 +33,21 @@
     { uid: 's4', kind: 'starter', name: 'Iced Pour Over', cup_type: 3, dose_g: 20, grind_size: 38, rpm: 90, grinder_on: true, color: '#B0BDE0',
       pours: [P(50, 94, 1, 35), P(80, 94, 2, 10, true), P(70, 94, 1, 0)] },
   ];
+  // The owner's two everyday recipes (from the xBloom app, Auto Mode A and B), pinned first on the home screen.
+  // BP (boiling point) is sent as 98, the machine's top temperature.
+  const PINNED = [
+    { uid: 'h-cold-sweet', kind: 'remedy', pinned: true, name: 'cold sweet 15 Grinder', cup_type: 2, dose_g: 15, grind_size: 15, rpm: 120, grinder_on: true, color: '#2FA8D5',
+      pours: [P(5, 98, 1, 10), P(35, 98, 3, 59), P(35, 98, 2, 20), P(30, 98, 2, 5)] },
+    { uid: 'h-jelly', kind: 'remedy', pinned: true, name: 'jelly', cup_type: 2, dose_g: 18, grind_size: 40, rpm: 120, grinder_on: true, color: '#F4C700',
+      pours: [P(35, 90, 3, 15), P(40, 90, 2, 20), P(42, 90, 2, 5)] },
+  ];
   let lib = [];
   function newUid() { return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function loadLib() {
     const saved = store.get('lib', null);
     const favStarters = new Set(store.get('favStarters', []));
     lib = (saved || []).filter((p) => !BUILTIN(p));
-    for (const s of [...REMEDY, ...STARTERS]) lib.push(Object.assign(JSON.parse(JSON.stringify(s)), { favorite: favStarters.has(s.uid) }));
+    for (const s of [...PINNED, ...REMEDY, ...STARTERS]) lib.push(Object.assign(JSON.parse(JSON.stringify(s)), { favorite: favStarters.has(s.uid) }));
   }
   function saveLib() {
     store.set('lib', lib.filter((p) => !BUILTIN(p)));
@@ -133,7 +141,7 @@
   function renderHome() {
     const row = $('#fav-row');
     row.innerHTML = '';
-    let list = lib.filter((p) => p.favorite);
+    let list = lib.filter((p) => p.pinned).concat(lib.filter((p) => p.favorite && !p.pinned));
     if (!list.length) list = lib.filter((p) => p.kind === 'mine').concat(lib.filter((p) => p.kind !== 'mine')).slice(0, 6);
     list.forEach((p) => row.appendChild(cardEl(p)));
   }
@@ -192,7 +200,7 @@
     p.pours.forEach((q, i) => {
       const r = document.createElement('div');
       r.className = 'pour-row';
-      r.innerHTML = `<span class="pi">${i + 1}</span><div><div class="pn"></div><div class="pd"><span class="num">${q.temp_c}°C · ${q.flow.toFixed(1)} ml/s${q.pause_s ? ' · ' + q.pause_s + 's' : ''}</span> · ${PAT_NAME[q.pattern]}${q.agitate_before || q.agitate_after ? ' · رجّ' : ''}</div></div><span class="pv num">${q.volume_ml} ml</span>`;
+      r.innerHTML = `<span class="pi">${i + 1}</span><div><div class="pn"></div><div class="pd"><span class="num">${q.temp_c >= 96 ? 'BP' : q.temp_c + '°C'} · ${q.flow.toFixed(1)} ml/s${q.pause_s ? ' · ' + q.pause_s + 's' : ''}</span> · ${PAT_NAME[q.pattern]}${q.agitate_before || q.agitate_after ? ' · رجّ' : ''}</div></div><span class="pv num">${q.volume_ml} ml</span>`;
       r.querySelector('.pn').textContent = pourName(p, i);
       list.appendChild(r);
     });
