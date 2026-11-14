@@ -445,7 +445,31 @@ svg { width: 1em; height: 1em; flex: none; }
   .module .mod-ic { width: 2.8em; height: 2.8em; }
   .module .mod-ic svg { width: 1.5em; height: 1.5em; }
   .fav-wrap .fav-row .card { height: 7.6em; }
-  .page { padding-bottom: calc(var(--tb-h) + 10em); }
+  .page { padding-bottom: calc(var(--tb-h) + 10em); overflow-x: hidden; }
+  /* «اليوم شربت» يرجع على الجوال (المالك ١٥ نوفمبر: «اختفى كم كوب شربت اليوم»): صف كامل فوق المفضلة */
+  .fav-wrap { grid-template-columns: 1fr; }
+  .fav-wrap .doc { display: flex; height: 7.2em; grid-row: 1; }
+  .fav-wrap .fav-row { grid-column: 1; }
+  /* الوصفات: التبويبات تنسحب لحالها بالعرض، و«وصفة جديدة» سطر تحتها، فما تطلع الصفحة برا الشاشة */
+  .rec-head { flex-direction: column; align-items: stretch; gap: .6em; }
+  .rec-head .seg { display: flex; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .rec-head .seg::-webkit-scrollbar { display: none; }
+  .rec-head .seg button { flex: 1 0 auto; padding: .45em 1em; }
+  .rec-grid { grid-template-columns: 1fr; }
+  .card { height: 8.6em; }
+  /* صفحة الوصفة: كانت نص الشاشة فراغ برتقالي، والصبّات مخفية على الجوال. الحين: بطاقة الوصفة بحجمها،
+     والإعدادات وزر ابدأ، وتحتها الرسم والصبّات، والصفحة تنزل */
+  .detail { display: block; height: 100%; overflow-y: auto; }
+  .d-left { padding: var(--m) var(--m) var(--g); }
+  .d-head { flex: none; min-height: 12.5em; }
+  .d-right { display: flex !important; padding: 0 var(--m) calc(var(--m) + env(safe-area-inset-bottom, 0px)); overflow: visible; }
+  .d-chart { flex: none; height: 9.5em; }
+  /* الطاحونة والتقطير والميزان: مكان ثابت للرسمة بدل ما تنعصر */
+  .mod-art { flex: none; height: 8.5em; }
+  /* شاشات الطاحونة والتقطير والميزان: الزر تحت فوق شريط الرجوع، والخيارات (وسط/دائري/حلزوني، g/oz/ml) صف واحد */
+  .module-screen { padding-bottom: calc(var(--m) + env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+  .opt-list { flex-direction: row; gap: 8px; }
+  .opt-list button { flex: 1; justify-content: center; flex-direction: column; gap: .3em; padding: .7em .4em; font-size: .95em; }
   .connect-card { width: calc(100% - 2 * var(--m)); bottom: calc(var(--tb-h) + 10px); padding: .8em .9em; gap: .7em; font-size: .92em; }
   .connect-card .cc-icon { width: 2.3em; height: 2.3em; }
   .connect-card .btn { white-space: nowrap; padding-inline: 1em; }

@@ -606,7 +606,7 @@
   // ---------------------------------------------------------------- scale
   const sw = { running: false, start: 0, elapsed: 0 };
   function renderScale() {
-    const g = S.weight;
+    const g = Math.abs(S.weight) < 0.05 ? 0 : S.weight;   // بلا «-0.0» لما الميزان فاضي
     $('#sc-val').textContent = mod.unit === 'oz' ? (g / 28.3495).toFixed(2) : g.toFixed(1);
     $('#sc-unit').textContent = mod.unit;
     $('#gr-weight').textContent = g.toFixed(1) + 'g';
