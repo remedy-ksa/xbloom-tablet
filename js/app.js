@@ -1197,7 +1197,14 @@
   keepAwake();
   link.restore();
   if (acct.signedIn && !acct.expired) setTimeout(() => sync(false), 1500);
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  /* داخل تطبيق ريمدي (Capacitor) بلا service worker: كان يقدّم نسخة قديمة من الكاش (اللوحة ٤٢ والمنشور ٤٦، ١٥ نوفمبر).
+     والمسجّل من قبل ينشال مع كاشه، فالجوال ياخذ الحي على طول */
+  const inApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (inApp && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+  }
+  if (!inApp && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWanted = true; });
     navigator.serviceWorker.register('sw.js').then((r) => setInterval(() => r.update().catch(() => {}), 60 * 60000)).catch(() => {});
