@@ -11,7 +11,10 @@
   }
 
   const STEP_TIMEOUT_MS = 3000, STEP_ATTEMPTS = 2;
-  const OPTIONAL_SERVICES = [0xffe0, 0xfff0, 0xffe5, 0x18f0, 0xfee7];
+  // The machine's main service is a custom 128-bit UUID (FFE1 write / FFE2 notify live inside it).
+  // Chrome only shows a page the services listed here, so it must be on the list.
+  const XB_SERVICE = '0000e0ff-3c17-d293-8e48-14fe2e4da212';
+  const OPTIONAL_SERVICES = [XB_SERVICE, 0xffe0, 0xfff0, 0xffe5, 0x18f0, 0xfee7];
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // Shared: frame handling, echo waiting, command queue.
@@ -165,7 +168,7 @@
     async pick() {
       if (!this.supported) throw new Error('هذا المتصفح ما يدعم البلوتوث. استخدم Chrome.');
       const d = await navigator.bluetooth.requestDevice({
-        filters: [{ namePrefix: 'XBLOOM' }, { namePrefix: 'xBloom' }, { namePrefix: 'Xbloom' }],
+        filters: [{ namePrefix: 'XBLOOM' }, { namePrefix: 'xBloom' }, { namePrefix: 'Xbloom' }, { namePrefix: 'xbloom' }, { namePrefix: 'XBloom' }, { services: [XB_SERVICE] }],
         optionalServices: OPTIONAL_SERVICES,
       });
       this.attach(d);
@@ -205,7 +208,15 @@
     async connect() {
       const d = this.device;
       this.setState('connecting', d.name);
-      const server = await d.gatt.connect();
+      // Android often fails the first GATT connect; try three times
+      let server;
+      for (let i = 0; ; i++) {
+        try { server = await d.gatt.connect(); break; } catch (e) {
+          this.log('gatt connect ' + (i + 1) + ': ' + e.message);
+          if (i >= 2) throw new Error('المكينة ما ردّت. تأكد إن تطبيق xBloom مقفول في الجوال (المكينة تقبل جهاز واحد بس) وجرب مرة ثانية.');
+          await sleep(800);
+        }
+      }
       let tx = null, rx = null;
       let services = [];
       try { services = await server.getPrimaryServices(); } catch (e) { this.log('services: ' + e.message); }
@@ -217,7 +228,15 @@
           }
         } catch (_) {}
       }
-      if (!tx || !rx) { d.gatt.disconnect(); throw new Error('ما لقيت قنوات FFE1/FFE2 في المكينة'); }
+      this.log('services: ' + services.map((s) => s.uuid).join(', '));
+      if (!tx || !rx) {
+        // Usually an old permission from before the service was on the list: drop it so the next tap asks again.
+        d.gatt.disconnect();
+        clearTimeout(this.reconnectTimer);
+        if (d.forget) d.forget().catch(() => {});
+        this.device = null; this.setState('idle', '');
+        throw new Error('ما قدرت أوصل لقناة المكينة. اضغط «اربط» مرة ثانية واختر المكينة.');
+      }
       rx.addEventListener('characteristicvaluechanged', (e) => {
         const v = e.target.value;
         this.onNotify(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
