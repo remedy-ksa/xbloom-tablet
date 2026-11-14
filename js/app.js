@@ -443,7 +443,7 @@
   setPattern(mod.bPat, false);
   function setPouring(on) {
     S.pouring = on; if (on) { S.pourStart = Date.now(); if (artFx) artFx.view.progress = 0; }
-    actState($('#br-play'), on, 'صبّ', 'وقّف الصب');
+    actState($('#br-play'), on, 'ابدأ', 'وقّف');
   }
   $('#br-play').addEventListener('click', async () => {
     if (!link.connected) return toast('المكينة مو متصلة');
