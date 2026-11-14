@@ -6,9 +6,15 @@
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   // ---------------------------------------------------------------- storage
+  let storeWarned = false;
   const store = {
     get(k, d = null) { try { const v = localStorage.getItem('xbp.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('xbp.' + k, JSON.stringify(v)); } catch (e) {} },
+    set(k, v) {
+      try { localStorage.setItem('xbp.' + k, JSON.stringify(v)); return true; } catch (e) {
+        if (!storeWarned && typeof toast === 'function') { storeWarned = true; setTimeout(() => toast('ما قدرت أحفظ في التابلت (المساحة ممتلية). نزّل نسخة احتياطية من الإعدادات.'), 0); }
+        return false;
+      }
+    },
   };
   const prefs = Object.assign({ awake: true, idleMin: 3, sim: false }, store.get('prefs', {}));
   const savePrefs = () => store.set('prefs', prefs);
@@ -66,7 +72,7 @@
       pours: p.pours.map((q) => ({ volume_ml: q.volume_ml, temp_c: q.temp_c, pattern: q.pattern, flow: q.flow, pause_s: q.pause_s,
         agitate_before: q.agitate_before, agitate_after: q.agitate_after })) };
   }
-  function pourName(p, i) { return (p.pours[i] && p.pours[i].name) || (i === 0 ? 'Bloom' : `Pour ${i + 1}`); }
+  function pourName(p, i) { return (p.pours[i] && p.pours[i].name) || (i === 0 ? 'التفتيح' : `الصبّة ${i + 1}`); }
 
   // ---------------------------------------------------------------- link + account
   const link = SIM ? new XBLink.SimLink() : new XBLink.BleLink(store);
@@ -127,7 +133,7 @@
       Dots.scale($('#tile-scale'), () => 180, Object.assign({}, o, { cx: 0.52 })),
     ];
   }
-  const homeVisible = () => S.screen === 'home' && S.tab === 'home' && $('#ov-clock').hidden;
+  const homeVisible = () => S.screen === 'home' && S.tab === 'home' && $('#ov-clock').hidden && $('#ov-brew').hidden && $('#ov-finish').hidden;
   function show(screen) {
     $$('.screen').forEach((s) => s.classList.toggle('active', s.id === 'scr-' + screen));
     S.screen = screen;
@@ -179,19 +185,23 @@
   $$('.tabbar button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   $$('[data-go-tab]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.goTab)));
 
+  // write only when the value changed (the 500 ms tick runs all day)
+  function setText(el, v) { v = String(v); if (el.textContent !== v) el.textContent = v; }
+  function setHidden(el, h) { if (el.hidden !== h) el.hidden = h; }
   // ---------------------------------------------------------------- status bar
   function renderStatus() {
     const st = link.state;
     const dot = $('#sb-dot');
-    dot.className = 'dot' + (st === 'connected' ? ' ok' : st === 'connecting' || st === 'searching' ? ' busy' : '');
-    $('#sb-name').textContent = link.name || 'XBLOOM';
-    $('#sb-state').textContent = st === 'connected' ? (S.flow === 'brewing' ? 'يحضّر' : 'متصلة')
-      : st === 'connecting' ? 'يتصل…' : st === 'searching' ? 'يبحث…' : 'غير مربوطة';
-    $('#sb-sync').textContent = syncing ? 'يزامن…' : '';
+    const cls = 'dot' + (st === 'connected' ? ' ok' : st === 'connecting' || st === 'searching' ? ' busy' : '');
+    if (dot.className !== cls) dot.className = cls;
+    setText($('#sb-name'), link.name || 'XBLOOM');
+    setText($('#sb-state'), st === 'connected' ? (S.flow === 'brewing' ? 'يحضّر' : 'متصلة')
+      : st === 'connecting' ? 'يتصل…' : st === 'searching' ? 'يبحث…' : 'غير مربوطة');
+    setText($('#sb-sync'), syncing ? 'يزامن…' : '');
   }
   function tickClock() {
     const d = new Date();
-    $('#sb-clock').textContent = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    setText($('#sb-clock'), d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
   }
 
   // ---------------------------------------------------------------- cards
@@ -221,17 +231,31 @@
     $('#today-n').textContent = n;
     $('#today-w').textContent = n === 1 ? 'كوب' : n === 2 ? 'كوبين' : n >= 3 && n <= 10 ? 'أكواب' : 'كوب';
   }
-  // A cup counts when the machine says ENJOY (brew finished), and only then.
-  let lastCup = 0;
-  function countCup(why) {
-    if (Date.now() - lastCup < 20000) return;
-    lastCup = Date.now();
+  // A cup counts when the machine says ENJOY (brew finished), and only then (the owner's rule).
+  // Each brew started here gets a brew id, kept in storage with the recipe, so a reload, a dropped
+  // Bluetooth link or a repeated ENJOY never counts it twice. An ENJOY from a brew started on the
+  // machine itself (no brew id) counts once, with a 20 s guard that also survives a reload.
+  const PENDING_MAX_MS = 30 * 60000;
+  let pending = store.get('pendingBrew', null);   // {brew_id, uid, name, crop, dose_g, ground, startedAt, grindSeen}
+  if (pending && !(Date.now() - pending.startedAt < PENDING_MAX_MS)) { pending = null; store.set('pendingBrew', null); }
+  function newPending(p) {
+    pending = { brew_id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: p.uid, name: p.name,
+      crop: p.crop || null, dose_g: p.dose_g, ground: !!(p.grinder_on && !prefs.noGrind), startedAt: Date.now(), grindSeen: false };
+    store.set('pendingBrew', pending);
+  }
+  function endPending() { if (pending) { pending = null; store.set('pendingBrew', null); } }
+  let lastCounted = store.get('lastCounted', { id: '', at: 0 });
+  function countCup() {
+    const id = pending ? pending.brew_id : '';
+    if (id ? id === lastCounted.id : Date.now() - lastCounted.at < 20000) return false;
+    lastCounted = { id: id || 'm' + Date.now().toString(36), at: Date.now() };
     renderToday();                      // rolls the day over first
     today.n += 1;
-    if (!SIM) { store.set('today', today); counter.cups += 1; saveCounter(); }
-    link.log && link.log('cup counted (' + why + '), today ' + today.n);
+    if (!SIM) { store.set('lastCounted', lastCounted); store.set('today', today); counter.cups += 1; saveCounter(); }
+    link.log && link.log('cup counted (' + (id || 'brew started on the machine') + '), today ' + today.n);
     renderToday();
-    if (S.screen === 'settings' || S.tab === 'settings') renderCounter();
+    if (S.tab === 'settings') renderCounter();
+    return true;
   }
   function renderHome() {
     renderToday();
@@ -275,9 +299,9 @@
     const col = p.color || DEFAULT_COLOR;
     $('#d-left').style.background = col;
     $('#scr-detail').style.setProperty('--fill', col);
-    $('#d-kind').textContent = `${KIND_NAME[p.kind]} · ${p.line || CUP_NAME[p.cup_type]}`;
-    $('#d-name').textContent = p.name;
-    $('#d-sub').innerHTML = `<span class="num">${totalWater(p)} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات${p.ice_g ? ` · ثلج <span class="num">${p.ice_g}g</span>` : ''}`;
+    $('#d-kind').innerHTML = `${esc(KIND_NAME[p.kind] || '')} · <span class="${LATIN(p.line || CUP_NAME[p.cup_type]) ? 'en' : ''}">${esc(p.line || CUP_NAME[p.cup_type] || '')}</span>`;
+    setName($('#d-name'), p.name);
+    $('#d-sub').innerHTML = `<span class="num">${Number(totalWater(p))} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات${p.ice_g ? ` · ثلج <span class="num">${Number(p.ice_g)}g</span>` : ''}`;
     $('#d-fav').textContent = p.favorite ? '♥' : '♡';
     const max = Math.max(...p.pours.map((q) => q.volume_ml), 1);
     const chart = $('#d-chart');
@@ -286,7 +310,7 @@
     p.pours.forEach((q, i) => {
       const c = document.createElement('div');
       c.className = 'col';
-      c.innerHTML = `<div class="vol">${q.volume_ml}</div><div class="bar" style="height:${Math.max(10, (q.volume_ml / max) * 80)}%"><div class="fill"></div></div><div class="lbl">${i + 1}</div>`;
+      c.innerHTML = `<div class="vol">${Number(q.volume_ml)}</div><div class="bar" style="height:${Math.max(10, (Number(q.volume_ml) / max) * 80)}%"><div class="fill"></div></div><div class="lbl">${i + 1}</div>`;
       c.dataset.cum = cum; c.dataset.vol = q.volume_ml;
       cum += q.volume_ml;
       chart.appendChild(c);
@@ -296,12 +320,13 @@
     p.pours.forEach((q, i) => {
       const r = document.createElement('div');
       r.className = 'pour-row';
-      r.innerHTML = `<span class="pi">${i + 1}</span><div><div class="pn"></div><div class="pd"><span class="num">${q.temp_c >= 96 ? 'BP' : q.temp_c + '°C'} · ${q.flow.toFixed(1)} ml/s${q.pause_s ? ' · ' + q.pause_s + 's' : ''}</span> · ${PAT_NAME[q.pattern]}${q.agitate_before || q.agitate_after ? ' · رجّ' : ''}</div></div><span class="pv num">${q.volume_ml} ml</span>`;
+      r.innerHTML = `<span class="pi">${i + 1}</span><div><div class="pn"></div><div class="pd"><span class="num">${q.temp_c >= 96 ? 'غليان' : Number(q.temp_c) + '°C'} · ${Number(q.flow).toFixed(1)} ml/s${q.pause_s ? ' · ' + Number(q.pause_s) + 's' : ''}</span> · ${PAT_NAME[q.pattern] || ''}${q.agitate_before || q.agitate_after ? ' · رجّ' : ''}</div></div><span class="pv num">${Number(q.volume_ml)} ml</span>`;
       r.querySelector('.pn').textContent = pourName(p, i);
       list.appendChild(r);
     });
     refreshDetail();
   }
+  const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function fmtMS(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
   function setStat(i, l, v, u) { $('#ds-l' + i).textContent = l; $('#ds-v' + i).textContent = v; $('#ds-u' + i).textContent = u; }
   function refreshDetail() {
@@ -370,33 +395,37 @@
   $('#d-edit').addEventListener('click', () => openEditor(S.cur));
   $('[data-back]').addEventListener('click', () => { show('home'); setTab(S.tab); });
 
-  $('#cup-cancel').addEventListener('click', async () => {
+  async function quitLoaded(msg) {
     closeModal('#md-cup');
-    S.flow = 'idle'; S.active = null; refreshDetail();
+    S.flow = 'idle'; S.active = null; endPending(); refreshDetail(); renderStatus();
+    if (msg) toast(msg);
     await link.quitRecipe();
-  });
+  }
+  $('#cup-cancel').addEventListener('click', () => quitLoaded());
   $('#cup-go').addEventListener('click', async () => {
     closeModal('#md-cup');
+    const p = find(S.active);
+    if (p) newPending(p);
     S.flow = 'starting'; refreshDetail();
     cmdResult('execute', await link.execute());  // the only path that starts a recipe brew
   });
 
+  const LOADED_MAX_MS = 2 * 60000;   // a loaded recipe nobody starts is taken off the machine
   function cmdResult(type, err) {
     if (err) {
       toast(err);
-      if (type === 'load') brewEnded();
-      if (type === 'execute') S.flow = 'loaded';
-      if (type === 'grinderStart') setGrinding(false);
-      if (type === 'brewerStart') setPouring(false);
+      if (type === 'load') { brewEnded(); endPending(); }
+      // a late answer must not undo a brew the machine started anyway (activity already moved us on)
+      if (type === 'execute' && S.flow === 'starting') { S.flow = 'loaded'; S.loadedAt = Date.now(); }
       refreshDetail(); renderStatus();
       return;
     }
     if (type === 'load') {
-      S.flow = 'loaded';
-      if (S.screen === 'detail' && S.cur === S.active) openModal('#md-cup');
+      S.flow = 'loaded'; S.loadedAt = Date.now();
+      openModal('#md-cup');                  // from whatever screen the person is on now
     } else if (type === 'execute') {
       if (S.flow !== 'brewing') { S.flow = 'brewing'; S.water = 0; S.brewStart = Date.now(); brewStarted(); }
-    } else if (type === 'stop') brewEnded();
+    } else if (type === 'stop') { brewEnded(); endPending(); }
     refreshDetail(); renderStatus();
   }
 
@@ -410,6 +439,7 @@
     $('#bw-name').textContent = p.name;
     $('#bw-total').textContent = `/ ${totalWater(p)} ml`;
     $('#ov-brew').hidden = false;
+    tilesOn(false);
     if (brewFx) brewFx.stop();
     brewFx = Dots.brew($('#brew-canvas'));
     updateBrew();
@@ -434,14 +464,15 @@
     $('#ov-brew').classList.toggle('paused', S.flow === 'paused');
     brewFx.view = { progress: Math.min(1, S.water / Math.max(1, totalWater(p))), pouring, grinding: S.activity === 34, paused: S.flow === 'paused' };
   }
-  function hideBrew() { $('#ov-brew').hidden = true; if (brewFx) brewFx.stop(); }
+  function hideBrew() { if ($('#ov-brew').hidden) return; $('#ov-brew').hidden = true; if (brewFx) brewFx.stop(); tilesOn(homeVisible()); }
   $('#bw-pause').addEventListener('click', async () => {
     if (S.flow === 'paused') cmdResult('resume', await link.resume());
     else if (S.flow === 'brewing') cmdResult('pause', await link.pause());
   });
   $('#bw-stop').addEventListener('click', () => confirmBox('توقف التحضير؟', 'المكينة بتوقف الوصفة الحين.', 'وقّف', async () => cmdResult('stop', await link.stop())));
 
-  function brewEnded(why) {
+  // screen state only; the stored brew (pending) is cleared by the callers that know the brew is over
+  function brewEnded() {
     hideBrew();
     S.flow = 'idle'; S.active = null; S.brewStart = 0; S.pourIdx = -1;
     refreshDetail(); renderStatus();
@@ -453,11 +484,13 @@
     $('#fn-ml').textContent = Math.round(ml) + ' ml';
     $('#fn-t').textContent = fmtMS(ms);
     $('#ov-finish').hidden = false;
+    tilesOn(false);
+    if (finishFx) finishFx.stop();
     finishFx = Dots.finish($('#finish-canvas'));
     clearTimeout(finishTimer);
     finishTimer = setTimeout(hideFinish, 90 * 1000);
   }
-  function hideFinish() { $('#ov-finish').hidden = true; if (finishFx) finishFx.stop(); clearTimeout(finishTimer); }
+  function hideFinish() { clearTimeout(finishTimer); if ($('#ov-finish').hidden) return; $('#ov-finish').hidden = true; if (finishFx) finishFx.stop(); tilesOn(homeVisible()); }
   $('#ov-finish').addEventListener('click', hideFinish);
 
   // ---------------------------------------------------------------- value cards (modules)
@@ -724,9 +757,13 @@
     const src = ed && find(ed.srcUid);
     if (!src) return;
     confirmBox('تحذف الوصفة؟', acct.signedIn && src.id ? 'بتنحذف من التابلت ومن حسابك في اكس بلوم.' : 'بتنحذف من التابلت.', 'احذف', async () => {
+      if (acct.signedIn && src.id) {
+        try { await acct.remove(src.id); } catch (e) {
+          return toast((isExpired(e) ? 'انتهت جلسة اكس بلوم، سجّل دخول وجرّب' : 'ما انحذفت من الحساب: ' + e.message) + '. الوصفة باقية.');
+        }
+      }
       lib = lib.filter((p) => p !== src); saveLib();
       ed = null; S.cur = null; show('home'); setTab('recipes');
-      if (acct.signedIn && src.id) { try { await acct.remove(src.id); } catch (e) { toast('ما انحذفت من الحساب: ' + e.message); } }
     });
   });
 
@@ -786,28 +823,40 @@
 
   // ---------------------------------------------------------------- settings + login
   // ---------------------------------------------------------------- machine counter
-  // Starts from the numbers in the xBloom app (cups made, days in use) and adds every brew
-  // this panel finishes. Brews started from the machine's knobs or the phone are not seen here,
-  // so tap "update" now and then with the app's numbers.
-  const counter = Object.assign({ cups: 2223, days: 374, at: Date.parse('2026-11-14T12:00:00+03:00') }, store.get('counter', {}));
+  // Starts at zero on a new tablet and adds every brew this panel finishes. Tap "update" to start
+  // from the numbers in the xBloom app (cups made, days in use); brews started from the machine's
+  // knobs or the phone while the panel isn't connected are not seen here. A tablet that already
+  // saved its numbers keeps them.
+  const counter = Object.assign({ cups: 0, days: 0, at: Date.now(), fromApp: false }, store.get('counter', {}));
+  if (store.get('counter', null) && !('fromApp' in store.get('counter'))) counter.fromApp = true;   // saved before this version
   const saveCounter = () => store.set('counter', counter);
+  if (!store.get('counter', null)) saveCounter();
+  const counterDays = () => counter.days + Math.max(0, Math.floor((Date.now() - counter.at) / 86400000));
   function renderCounter() {
-    const days = counter.days + Math.max(0, Math.floor((Date.now() - counter.at) / 86400000));
+    const days = counterDays();
     const perDay = days > 0 ? counter.cups / days : 0;
     const one = (x) => (Math.round(x * 10) / 10).toString();
-    $('#ct-cups').textContent = counter.cups.toLocaleString('en-US');
-    $('#ct-days').textContent = days.toLocaleString('en-US');
-    $('#ct-day').textContent = one(perDay);
-    $('#ct-week').textContent = one(perDay * 7);
-    $('#ct-month').textContent = Math.round(perDay * 30.44).toString();   // average month
-    $('#ct-note').textContent = 'من أرقام تطبيق xBloom، ويزيد مع كل كوب من اللوحة';
+    setText($('#ct-cups'), counter.cups.toLocaleString('en-US'));
+    setText($('#ct-days'), days.toLocaleString('en-US'));
+    setText($('#ct-day'), one(perDay));
+    setText($('#ct-week'), one(perDay * 7));
+    setText($('#ct-month'), Math.round(perDay * 30.44).toString());   // average month
+    setText($('#ct-note'), counter.fromApp ? 'من أرقام تطبيق xBloom، ويزيد مع كل كوب من اللوحة' : 'يعدّ من أول ما ركّبت اللوحة. دخّل أرقام تطبيق xBloom عشان يبدأ منها.');
+    setText($('#btn-counter'), counter.fromApp ? 'حدّث من تطبيق xBloom' : 'دخّل أرقام تطبيق xBloom');
   }
   $('#btn-counter').addEventListener('click', () => {
-    const c = parseInt(prompt('كم كوب مكتوب في تطبيق xBloom؟', counter.cups), 10);
-    if (!(c > 0)) return;
-    const d = parseInt(prompt('وكم يوم؟', counter.days + Math.max(0, Math.floor((Date.now() - counter.at) / 86400000))), 10);
-    if (!(d > 0)) return;
-    Object.assign(counter, { cups: c, days: d, at: Date.now() }); saveCounter(); renderCounter();
+    $('#cn-cups').value = counter.fromApp ? counter.cups : '';
+    $('#cn-days').value = counter.fromApp ? counterDays() : '';
+    $('#cn-err').textContent = '';
+    openModal('#md-counter', '#cn-cups');
+  });
+  $('#cn-cancel').addEventListener('click', () => closeModal('#md-counter'));
+  $('#counter-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = parseInt($('#cn-cups').value, 10), d = parseInt($('#cn-days').value, 10);
+    if (!(c >= 0) || !(d > 0)) { $('#cn-err').textContent = 'اكتب عدد الأكواب وعدد الأيام بالأرقام'; return; }
+    Object.assign(counter, { cups: c, days: d, at: Date.now(), fromApp: true }); saveCounter(); renderCounter();
+    closeModal('#md-counter');
   });
 
   // ---------------------------------------------------------------- recipes kept on this device
@@ -823,10 +872,46 @@
   }
   askPersist();
   const mine = () => lib.filter((p) => !BUILTIN(p));
+  const WEEK = 7 * 86400000;
+  const backupDue = () => mine().length > 0 && Date.now() - store.get('lastBackup', 0) > WEEK;
   function renderBackup() {
-    $('#st-persist').textContent = persisted == null ? '…' : persisted ? 'محمي، ما ينمسح لحاله' : 'عادي، يضيع لو انمسحت بيانات المتصفح';
-    const n = mine().length;
-    $('#st-mine').textContent = n ? `· ${n} وصفة` : '· ما عندك وصفات خاصة';
+    setText($('#st-persist'), persisted == null ? '…' : persisted ? 'محمي، ما ينمسح لحاله' : 'عادي، يضيع لو انمسحت بيانات المتصفح');
+    const n = mine().length, last = store.get('lastBackup', 0);
+    const age = last ? Math.floor((Date.now() - last) / 86400000) : -1;
+    setText($('#st-mine'), (n ? `· ${n} وصفة` : '· ما عندك وصفات خاصة') + (n ? (age < 0 ? ' · ما نزّلت نسخة للحين' : age === 0 ? ' · آخر نسخة اليوم' : ` · آخر نسخة قبل ${age} يوم`) : ''));
+    $('#btn-export').classList.toggle('primary', backupDue());
+  }
+  // once a week, if there are recipes of your own and no backup this week: a reminder (M11)
+  function backupNudge() {
+    if (!backupDue() || Date.now() - store.get('backupNudged', 0) < WEEK) return;
+    store.set('backupNudged', Date.now());
+    toast('صار لك أسبوع بدون نسخة احتياطية لوصفاتك. نزّلها من الإعدادات.');
+  }
+  // A backup file is outside data: every recipe is rebuilt field by field, numbers as numbers, and
+  // must pass the machine's own ranges, or it is skipped (M12: nothing from the file reaches the page as HTML).
+  const HEX = /^#[0-9a-f]{6}$/i;
+  function cleanRecipe(p) {
+    if (!p || typeof p !== 'object' || !Array.isArray(p.pours) || !p.pours.length || !p.name) return null;
+    const n = (v, d = 0) => { const x = Number(v); return Number.isFinite(x) ? x : d; };
+    const str = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, '').slice(0, max);
+    const r = {
+      uid: str(p.uid, 40) || newUid(), kind: p.kind === 'shared' ? 'shared' : 'mine', id: p.id ? str(p.id, 40) : '',
+      name: str(p.name, 40).trim() || 'بدون اسم', cup_type: n(p.cup_type, 3), dose_g: n(p.dose_g, 15),
+      grind_size: Math.round(n(p.grind_size, 45)), rpm: n(p.rpm, 90), grinder_on: !!p.grinder_on,
+      color: HEX.test(p.color) ? p.color : DEFAULT_COLOR, color_src: HEX.test(p.color_src) ? p.color_src : '',
+      favorite: !!p.favorite, dirty: !!p.dirty, crop: typeof p.crop === 'string' && /^[a-z]{2,20}$/.test(p.crop) ? p.crop : null,
+      pours: p.pours.slice(0, 9).map((q) => ({
+        name: str(q && q.name, 20), volume_ml: n(q && q.volume_ml), temp_c: n(q && q.temp_c, 93),
+        pattern: [1, 2, 3].includes(n(q && q.pattern)) ? n(q.pattern) : 2, pause_s: n(q && q.pause_s), flow: n(q && q.flow, 3),
+        agitate_before: !!(q && q.agitate_before), agitate_after: !!(q && q.agitate_after),
+      })),
+    };
+    if (p.extra && typeof p.extra === 'object') {
+      const x = p.extra;
+      r.extra = { bypass: !!x.bypass, bypassTemp: n(x.bypassTemp, 85), bypassVolume: n(x.bypassVolume, 5), adaptedModel: n(x.adaptedModel, 1),
+        createTimeStamp: n(x.createTimeStamp, 0), isShortcuts: n(x.isShortcuts, 0), subSetType: n(x.subSetType, 0), theSubsetId: n(x.theSubsetId, 0) };
+    }
+    return XB.validate(r) ? null : r;
   }
   $('#btn-export').addEventListener('click', () => {
     const data = {
@@ -841,6 +926,7 @@
     a.download = `remedy-xbloom-${stamp}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    store.set('lastBackup', Date.now()); renderBackup();
     toast('نزّلت النسخة في التنزيلات');
   });
   $('#btn-import').addEventListener('click', () => $('#file-import').click());
@@ -851,17 +937,25 @@
     let data;
     try { data = JSON.parse(await file.text()); } catch (err) { return toast('الملف مو نسخة من اللوحة'); }
     if (!data || data.app !== 'remedy-xbloom-panel' || !Array.isArray(data.recipes)) return toast('الملف مو نسخة من اللوحة');
-    const ok = data.recipes.filter((p) => p && p.uid && p.name && Array.isArray(p.pours) && p.pours.length && !BUILTIN(p));
+    const ok = data.recipes.filter((p) => p && !BUILTIN(p)).map(cleanRecipe).filter(Boolean);
+    const skipped = data.recipes.filter((p) => p && !BUILTIN(p)).length - ok.length;
     let added = 0, updated = 0;
     for (const p of ok) {
       const i = lib.findIndex((q) => q.uid === p.uid);
       if (i >= 0) { lib[i] = p; updated++; } else { lib.unshift(p); added++; }
     }
-    const fav = new Set(data.favorites || []);
+    const fav = new Set((Array.isArray(data.favorites) ? data.favorites : []).map(String));
     lib.forEach((p) => { if (BUILTIN(p) && fav.has(p.uid)) p.favorite = true; });
-    if (data.counter && data.counter.cups > counter.cups) { Object.assign(counter, data.counter); saveCounter(); }
+    // counter, today and the grind switch come back too, when they are sane
+    const c = data.counter || {};
+    if (Number.isFinite(c.cups) && Number.isFinite(c.days) && Number.isFinite(c.at) && c.cups >= 0 && c.days >= 0 && c.cups >= counter.cups) {
+      Object.assign(counter, { cups: c.cups, days: c.days, at: c.at, fromApp: c.fromApp !== false }); saveCounter();
+    }
+    const td = data.today || {};
+    if (td.d === dayKey() && Number.isFinite(td.n) && td.n > today.n && td.n < 100) { today.n = td.n; store.set('today', today); }
+    if (data.prefs && typeof data.prefs.noGrind === 'boolean') { prefs.noGrind = data.prefs.noGrind; savePrefs(); }
     saveLib(); renderSettings(); renderHome();
-    toast(`رجّعت ${added} وصفة جديدة${updated ? ` وحدّثت ${updated}` : ''}`);
+    toast(`رجّعت ${added} وصفة جديدة${updated ? ` وحدّثت ${updated}` : ''}${skipped ? ` وتركت ${skipped} ما تنفع للمكينة` : ''}`);
   });
 
   function renderSettings() {
@@ -933,7 +1027,7 @@
   link.on('link', (st) => {
     S.linkSince = Date.now();
     if (st !== 'connected') {
-      if (S.flow !== 'idle') brewEnded();
+      if (S.flow !== 'idle') brewEnded();     // the stored brew stays: when the link comes back mid-brew it picks up again
       setGrinding(false); setPouring(false);
     }
     renderStatus(); renderSettings(); refreshDetail(); updateConnectCard();
@@ -945,35 +1039,53 @@
   });
   link.on('water', (ml) => (S.water = ml));
   link.on('pour', (i) => (S.pourIdx = i));
+  let endTimer = 0;
   link.on('activity', (a) => {
     S.activity = a;
     wake();
     const brewing = a === 34 || a === 30 || a === 35 || a === 16;
+    if (a === 34 && pending && !pending.grindSeen) { pending.grindSeen = true; store.set('pendingBrew', pending); }
+    if (brewing || a === 31) clearTimeout(endTimer);
     if (brewing && S.active && (S.flow === 'loaded' || S.flow === 'starting')) {
+      closeModal('#md-cup');
       S.flow = 'brewing';
-      if (!S.brewStart) S.brewStart = Date.now();
+      if (!S.brewStart) S.brewStart = (pending && pending.startedAt) || Date.now();
       brewStarted();
+    } else if ((brewing || a === 31) && S.flow === 'idle' && pending && find(pending.uid)) {
+      // the link dropped mid-brew, or the page reloaded: the machine is still brewing our recipe (M7)
+      S.active = pending.uid; S.flow = a === 31 ? 'paused' : 'brewing'; S.brewStart = pending.startedAt;
+      link.log && link.log('brew picked up again (' + pending.brew_id + ')');
+      brewStarted();
+    } else if (a === 1 && S.flow === 'idle' && pending && Date.now() - pending.startedAt > 60000) {
+      endPending();                           // back home without us seeing the end: that brew is over
     }
-    if ((a === 1 || a === 36) && S.active && (S.flow === 'brewing' || S.flow === 'paused')) brewEnded(a === 36 ? 'done' : 'home');
+    // Home / Done: keep the recipe for 3 s, the machine may send ENJOY just after (M8; its order on the real
+    // machine isn't logged yet). ENJOY inside the 3 s ends it properly; otherwise it ends here.
+    if ((a === 1 || a === 36) && S.active && (S.flow === 'brewing' || S.flow === 'paused')) {
+      clearTimeout(endTimer);
+      endTimer = setTimeout(() => { if (S.flow === 'brewing' || S.flow === 'paused') { brewEnded(); endPending(); } }, 3000);
+    }
     refreshDetail(); renderStatus();
   });
   link.on('done', () => {
-    countCup('enjoy');
-    const p = find(S.active);
+    clearTimeout(endTimer);
+    const counted = countCup();
+    const p = find(S.active) || (pending && find(pending.uid));
+    const name = p ? p.name : pending ? pending.name : 'قهوتك';
     const ml = S.water > 0 ? S.water : p ? totalWater(p) : 0;
-    const ms = S.brewStart ? Date.now() - S.brewStart : 0;
-    showFinish(p ? p.name : 'قهوتك', S.weight, ml, ms);
+    const start = S.brewStart || (pending && pending.startedAt) || 0;
+    if (counted || $('#ov-finish').hidden) showFinish(name, S.weight, ml, start ? Date.now() - start : 0);
     wake();
-    brewEnded('done');
+    brewEnded(); endPending();
   });
-  link.on('abandoned', brewEnded);
+  link.on('abandoned', () => { brewEnded(); endPending(); });
   link.on('paused', () => { if (S.flow === 'brewing') S.flow = 'paused'; refreshDetail(); });
   link.on('resumed', () => { if (S.flow === 'paused') S.flow = 'brewing'; refreshDetail(); });
   link.on('fault', (m) => { toast(m); wake(); });
   link.on('pod', () => wake());
 
   // ---------------------------------------------------------------- idle: clock, go home, wake lock
-  let clockFx = null, wakeLock = null;
+  let clockFx = null, wakeLock = null, reloadWanted = false;
   function wake() { S.lastTouch = Date.now(); hideClock(); }
   function showClock() {
     if (!$('#ov-clock').hidden) return;
@@ -990,7 +1102,8 @@
     clockFx.date = d.toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { weekday: 'long', day: 'numeric', month: 'long' });
   }
   $('#ov-clock').addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); wake(); });
-  document.addEventListener('pointerdown', () => { S.lastTouch = Date.now(); }, true);
+  ['pointerdown', 'keydown', 'input'].forEach((ev) => document.addEventListener(ev, () => { S.lastTouch = Date.now(); }, true));
+  const typing = () => S.screen === 'editor' || !$('#md-login').hidden || !$('#md-counter').hidden;
 
   function goHomeIdle() {
     hideFinish();
@@ -1014,18 +1127,20 @@
     renderStatus();
     if (S.screen === 'detail' && S.active === S.cur) refreshDetail();
     updateBrew();
-    $('#br-timer').textContent = fmtSW(S.pouring ? Date.now() - S.pourStart : 0);
+    setText($('#br-timer'), fmtSW(S.pouring ? Date.now() - S.pourStart : 0));
     const pourP = S.pouring ? Math.min(1, (Date.now() - S.pourStart) / (mod.bVol / mod.bFlow * 1000)) : 0;
-    $('#br-play').style.setProperty('--p', pourP.toFixed(3));
+    if (S.screen === 'brewer') $('#br-play').style.setProperty('--p', pourP.toFixed(3));
     if (artFx && S.screen === 'brewer') { if (S.pouring) artFx.view.progress = pourP * 0.85; artFx.view.pouring = S.pouring; }
-    $('#sc-timer').textContent = fmtSW(sw.elapsed + (sw.running ? Date.now() - sw.start : 0));
+    setText($('#sc-timer'), fmtSW(sw.elapsed + (sw.running ? Date.now() - sw.start : 0)));
     if (S.pouring && Date.now() - S.pourStart > (mod.bVol / mod.bFlow + 8) * 1000) setPouring(false);
     const idle = Date.now() - S.lastTouch;
-    if (!busy() && idle > 30000) {
+    if (S.flow === 'loaded' && Date.now() - S.loadedAt > LOADED_MAX_MS) quitLoaded('ألغيت الوصفة من المكينة لأن التحضير ما بدأ');   // M6
+    if (!busy() && !typing() && idle > 30000) {
       const atHome = S.screen === 'home' && S.tab === 'home' && $('#ov-finish').hidden;
       if (!atHome) goHomeIdle();
     }
-    if (!busy() && prefs.idleMin > 0 && idle > prefs.idleMin * 60000) showClock();
+    if (!busy() && !typing() && prefs.idleMin > 0 && idle > prefs.idleMin * 60000) showClock();
+    if (reloadWanted && !busy() && !typing() && $('#ov-finish').hidden && S.screen === 'home') location.reload();   // M13
     if (!$('#ov-clock').hidden) tickIdleClock();
     if (acct.signedIn && !acct.expired && !syncing && Date.now() >= nextSync && !busy()) sync(false);
     updateConnectCard();
@@ -1047,6 +1162,11 @@
   keepAwake();
   link.restore();
   if (acct.signedIn && !acct.expired) setTimeout(() => sync(false), 1500);
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWanted = true; });
+    navigator.serviceWorker.register('sw.js').then((r) => setInterval(() => r.update().catch(() => {}), 60 * 60000)).catch(() => {});
+  }
+  setTimeout(backupNudge, 8000);
   if (new URLSearchParams(location.search).has('debug')) window.__panel = { S, link, lib: () => lib };  // console debugging, ?debug=1 only
 })();

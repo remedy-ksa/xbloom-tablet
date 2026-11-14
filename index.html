@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=25">
+<link rel="stylesheet" href="css/app.css?v=26">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -340,6 +340,17 @@
     </form>
   </div>
 
+  <div class="modal" id="md-counter" hidden>
+    <form class="dialog" id="counter-form" role="dialog" aria-modal="true" aria-labelledby="cn-title">
+      <h3 id="cn-title">أرقام تطبيق xBloom</h3>
+      <p>افتح تطبيق xBloom واكتب الأرقام اللي فيه. اللوحة تكمّل العدّ منها مع كل كوب.</p>
+      <label class="field"><span>كم كوب سوّت المكينة؟</span><input id="cn-cups" type="number" inputmode="numeric" min="0" step="1" dir="ltr"></label>
+      <label class="field"><span>كم يوم صار لها؟</span><input id="cn-days" type="number" inputmode="numeric" min="1" step="1" dir="ltr"></label>
+      <div class="dlg-err" id="cn-err" role="alert"></div>
+      <div class="dlg-btns"><button type="button" class="btn" id="cn-cancel">إلغاء</button><button type="submit" class="btn primary">احفظ</button></div>
+    </form>
+  </div>
+
   <div class="modal" id="md-confirm" hidden>
     <div class="dialog">
       <h3 id="cf-title"></h3><p id="cf-body"></p>
@@ -364,11 +375,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=25"></script>
-<script src="js/cloud.js?v=25"></script>
-<script src="js/ble.js?v=25"></script>
-<script src="js/dots.js?v=25"></script>
-<script src="js/remedy-recipes.js?v=25"></script>
-<script src="js/app.js?v=25"></script>
+<script src="js/protocol.js?v=26"></script>
+<script src="js/cloud.js?v=26"></script>
+<script src="js/ble.js?v=26"></script>
+<script src="js/dots.js?v=26"></script>
+<script src="js/remedy-recipes.js?v=26"></script>
+<script src="js/app.js?v=26"></script>
 </body>
 </html>
