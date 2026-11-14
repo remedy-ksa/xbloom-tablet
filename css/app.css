@@ -145,6 +145,10 @@ svg { width: 1em; height: 1em; flex: none; }
 .d-name { color: var(--ink); font-size: clamp(28px, 3.2vw, 46px); line-height: 1.2; margin: auto 0 .2em; font-weight: 800; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .d-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .45em; opacity: .75; font-size: 1em; }
 .d-kind::before { content: '·'; margin-inline-end: .45em; }
+.grind-seg { display: flex; width: 100%; }
+.grind-seg button { flex: 1; font-weight: 700; padding: .6em 1em; }
+.grind-seg button.on[data-g="0"] { background: var(--yellow); color: var(--on-yellow); }
+.grind-seg button:disabled { opacity: .5; }
 .d-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6em; }
 .stat { background: var(--s1); border-radius: var(--r-sm); padding: .65em .9em; }
 .stat-l { font-size: .82em; color: var(--muted); }

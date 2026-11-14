@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=9">
+<link rel="stylesheet" href="css/app.css?v=10">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -72,7 +72,8 @@
       <div class="page" id="page-recipes">
         <div class="rec-head">
           <div class="seg" id="rec-seg">
-            <button data-seg="mine" class="on">وصفاتي</button>
+            <button data-seg="remedy" class="on">ريمدي</button>
+            <button data-seg="mine">وصفاتي</button>
             <button data-seg="shared">المشتركة</button>
             <button data-seg="starter">الأساسية</button>
           </div>
@@ -148,6 +149,10 @@
           <div class="stat"><div class="stat-l" id="ds-l0">البن</div><div class="stat-v num"><b id="ds-v0">0</b><small id="ds-u0">g</small></div></div>
           <div class="stat"><div class="stat-l" id="ds-l1">الطحن</div><div class="stat-v num"><b id="ds-v1">0</b><small id="ds-u1"></small></div></div>
           <div class="stat"><div class="stat-l" id="ds-l2">RPM</div><div class="stat-v num"><b id="ds-v2">0</b><small id="ds-u2"></small></div></div>
+        </div>
+        <div class="seg grind-seg" id="d-grind" role="group" aria-label="الطحن">
+          <button data-g="1">مع طحن</button>
+          <button data-g="0">بدون طحن</button>
         </div>
         <div class="d-buttons">
           <button class="start-btn" id="d-start"><span class="ic" id="d-start-ic">▶</span><span id="d-start-lbl">ابدأ</span></button>
@@ -311,10 +316,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=9"></script>
-<script src="js/cloud.js?v=9"></script>
-<script src="js/ble.js?v=9"></script>
-<script src="js/dots.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/protocol.js?v=10"></script>
+<script src="js/cloud.js?v=10"></script>
+<script src="js/ble.js?v=10"></script>
+<script src="js/dots.js?v=10"></script>
+<script src="js/remedy-recipes.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>

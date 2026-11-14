@@ -18,7 +18,9 @@
   const CARD_COLORS = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5', '#A9C99A', '#EFEBE2'];
   const PAT_NAME = { 1: 'وسط', 2: 'حلزوني', 3: 'دائري' };
   const CUP_NAME = { 1: 'xPod', 2: 'Omni', 3: 'Other', 4: 'Tea' };
-  const KIND_NAME = { mine: 'وصفاتي', shared: 'مشتركة', starter: 'أساسية' };
+  const KIND_NAME = { mine: 'وصفاتي', shared: 'مشتركة', starter: 'أساسية', remedy: 'ريمدي' };
+  const BUILTIN = (p) => p.kind === 'starter' || p.kind === 'remedy';   // shipped with the app, not saved
+  const REMEDY = window.REMEDY_RECIPES || [];
   const P = (ml, temp, pattern, pause, agitate = false, flow = 3.0) =>
     ({ name: '', volume_ml: ml, temp_c: temp, pattern, pause_s: pause, agitate_before: false, agitate_after: agitate, flow });
   const STARTERS = [
@@ -36,19 +38,20 @@
   function loadLib() {
     const saved = store.get('lib', null);
     const favStarters = new Set(store.get('favStarters', []));
-    lib = (saved || []).filter((p) => p.kind !== 'starter');
-    for (const s of STARTERS) lib.push(Object.assign(JSON.parse(JSON.stringify(s)), { favorite: favStarters.has(s.uid) }));
+    lib = (saved || []).filter((p) => !BUILTIN(p));
+    for (const s of [...REMEDY, ...STARTERS]) lib.push(Object.assign(JSON.parse(JSON.stringify(s)), { favorite: favStarters.has(s.uid) }));
   }
   function saveLib() {
-    store.set('lib', lib.filter((p) => p.kind !== 'starter'));
-    store.set('favStarters', lib.filter((p) => p.kind === 'starter' && p.favorite).map((p) => p.uid));
+    store.set('lib', lib.filter((p) => !BUILTIN(p)));
+    store.set('favStarters', lib.filter((p) => BUILTIN(p) && p.favorite).map((p) => p.uid));
   }
   const find = (uid) => lib.find((p) => p.uid === uid);
   const totalWater = (p) => p.pours.reduce((t, q) => t + q.volume_ml, 0);
   const ratio = (p) => (p.dose_g > 0 ? Math.round((totalWater(p) / p.dose_g) * 10) / 10 : 0);
   const fmtNum = (x) => (Math.round(x * 10) / 10).toString();
-  function toMachine(p) {
-    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on,
+  // forBrew: apply the quick "without grinding" switch (pre-ground coffee) without touching the saved recipe
+  function toMachine(p, forBrew = false) {
+    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on && !(forBrew && prefs.noGrind),
       pours: p.pours.map((q) => ({ volume_ml: q.volume_ml, temp_c: q.temp_c, pattern: q.pattern, flow: q.flow, pause_s: q.pause_s,
         agitate_before: q.agitate_before, agitate_after: q.agitate_after })) };
   }
@@ -61,7 +64,7 @@
 
   // ---------------------------------------------------------------- state
   const S = {
-    screen: 'home', tab: 'home', seg: 'mine', cur: null,
+    screen: 'home', tab: 'home', seg: 'remedy', cur: null,
     flow: 'idle', active: null, weight: 0, water: 0, pourIdx: -1, brewStart: 0, activity: 0,
     grinding: false, pouring: false, pourStart: 0,
     lastTouch: Date.now(), wakeRef: 0, lastWaterAt: 0, lastWater: 0, linkSince: Date.now(),
@@ -119,7 +122,7 @@
     const b = document.createElement('button');
     b.className = 'card' + (S.active === p.uid && S.flow !== 'idle' ? ' active-brew' : '');
     b.style.background = p.color || '#C9D5B8';
-    b.innerHTML = `<div class="c-top"><span>${CUP_NAME[p.cup_type] || ''} · ${KIND_NAME[p.kind]}</span><span class="c-heart">${p.favorite ? '♥' : ''}</span></div>
+    b.innerHTML = `<div class="c-top"><span>${p.line || CUP_NAME[p.cup_type] || ''} · ${KIND_NAME[p.kind]}</span><span class="c-heart">${p.favorite ? '♥' : ''}</span></div>
       <div class="c-name"></div>
       <div class="c-meta">${fmtNum(p.dose_g)}g · 1:${fmtNum(ratio(p))} · ${p.grinder_on ? 'G' + p.grind_size : 'no grind'}</div>
       ${p.dirty ? '<span class="c-dirty" title="مو محفوظة في الحساب"></span>' : ''}`;
@@ -168,9 +171,9 @@
     const col = p.color || '#C9D5B8';
     $('#d-left').style.background = col;
     $('#scr-detail').style.setProperty('--fill', col);
-    $('#d-kind').textContent = `${KIND_NAME[p.kind]} · ${CUP_NAME[p.cup_type]}`;
+    $('#d-kind').textContent = `${KIND_NAME[p.kind]} · ${p.line || CUP_NAME[p.cup_type]}`;
     $('#d-name').textContent = p.name;
-    $('#d-sub').innerHTML = `<span class="num">${totalWater(p)} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات`;
+    $('#d-sub').innerHTML = `<span class="num">${totalWater(p)} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات${p.ice_g ? ` · ثلج <span class="num">${p.ice_g}g</span>` : ''}`;
     $('#d-fav').textContent = p.favorite ? '♥' : '♡';
     const max = Math.max(...p.pours.map((q) => q.volume_ml), 1);
     const chart = $('#d-chart');
@@ -208,8 +211,10 @@
       setStat(2, 'الوقت', fmtMS(S.brewStart ? Date.now() - S.brewStart : 0), '');
     } else {
       setStat(0, 'البن', fmtNum(p.dose_g), 'g');
-      setStat(1, 'الطحن', p.grinder_on ? p.grind_size : 'بدون', '');
-      setStat(2, 'RPM', p.grinder_on ? p.rpm : 'بدون', '');
+      const grind = p.grinder_on && !prefs.noGrind;
+      $$('#d-grind button').forEach((x) => { x.classList.toggle('on', (x.dataset.g === '1') === grind); x.disabled = !p.grinder_on; });
+      setStat(1, 'الطحن', grind ? p.grind_size : 'بدون', '');
+      setStat(2, 'RPM', grind ? p.rpm : 'بدون', '');
     }
     $$('#d-chart .col').forEach((c) => {
       const f = brewing ? Math.max(0, Math.min(1, (S.water - +c.dataset.cum) / +c.dataset.vol)) : 0;
@@ -241,13 +246,18 @@
     if (S.flow !== 'idle') return toast('فيه وصفة ثانية على المكينة');
     const p = find(S.cur);
     if (!p) return;
-    const err = XB.validate(toMachine(p));
+    const err = XB.validate(toMachine(p, true));
     if (err) return toast(err);
     S.active = S.cur; S.flow = 'loading';
     refreshDetail(); renderStatus();
-    cmdResult('load', await link.load(toMachine(p)));
+    cmdResult('load', await link.load(toMachine(p, true)));
   });
   $('#d-stop').addEventListener('click', async () => cmdResult('stop', await link.stop()));
+  // quick switch: grind in the machine, or brew pre-ground coffee (remembered for next time)
+  $$('#d-grind button').forEach((b) => b.addEventListener('click', () => {
+    if (S.active === S.cur && S.flow !== 'idle') return toast('غيّرها قبل ما تحمّل الوصفة');
+    prefs.noGrind = b.dataset.g === '0'; savePrefs(); refreshDetail();
+  }));
   $('#d-fav').addEventListener('click', () => {
     const p = find(S.cur); if (!p) return;
     p.favorite = !p.favorite; saveLib();
@@ -635,7 +645,7 @@
       return c;
     });
     const localOnly = lib.filter((p) => p.kind === 'mine' && !p.id);
-    const starters = lib.filter((p) => p.kind === 'starter');
+    const starters = lib.filter(BUILTIN);
     lib = [...localOnly, ...fresh, ...starters];
     saveLib();
     if (S.cur && !find(S.cur) && S.screen === 'detail') { show('home'); setTab(S.tab); }
@@ -682,7 +692,7 @@
     $('#lg-go').disabled = false;
   });
   $('#btn-logout').addEventListener('click', () => confirmBox('تطلع من الحساب؟', 'وصفات الحساب بتنشال من التابلت.', 'اطلع', () => {
-    acct.signOut(); lib = lib.filter((p) => p.kind === 'starter' || (p.kind === 'mine' && !p.id)); saveLib(); lastSync = 0; store.set('lastSync', 0); renderSettings();
+    acct.signOut(); lib = lib.filter((p) => BUILTIN(p) || (p.kind === 'mine' && !p.id)); saveLib(); lastSync = 0; store.set('lastSync', 0); renderSettings();
   }));
   $('#st-awake').addEventListener('change', (e) => { prefs.awake = e.target.checked; savePrefs(); keepAwake(); });
   $('#st-sim').addEventListener('change', (e) => { prefs.sim = e.target.checked; savePrefs(); location.reload(); });
