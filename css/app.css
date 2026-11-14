@@ -94,7 +94,7 @@ svg { width: 1em; height: 1em; flex: none; }
 .doc-man { position: absolute; left: .3em; bottom: .25em; height: 8em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
 @media (max-width: 700px) { .doc { display: none; } .fav-wrap .fav-row { grid-column: 1 / -1; } }
 .fav-empty { color: var(--muted); padding: 2em 0; }
-.modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g); min-height: 16em; }
+.modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g); min-height: 0; }
 .module { position: relative; border-radius: var(--r); padding: 1.2em 1.3em; text-align: right; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; overflow: hidden; background: var(--s1); border: 1px solid var(--s2); transition: transform .16s var(--ease), border-color .2s var(--ease); }
 .module .mod-ic { margin-bottom: auto; }
 .mod-ic { width: 2.9em; height: 2.9em; border-radius: 50%; background: currentColor; display: grid; place-items: center; flex: none; position: relative; }
@@ -389,4 +389,28 @@ svg { width: 1em; height: 1em; flex: none; }
   .d-right { display: none; }
   .d-left { padding: var(--m); }
   .brew-info { width: 100%; justify-content: flex-end; }
+}
+
+/* short screens (the 8-inch Honor tablet is about 730x460 CSS px): a slimmer bar and a lower
+   favourites row, so the three tiles always end above the bar */
+@media (max-height: 560px) {
+  :root { --tb-dot: 42px; --tb-notch: 28px; --tb-h: calc(var(--tb-dot) / 2 + 60px + env(safe-area-inset-bottom)); }
+  .tabbar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .tb-holder { max-width: 440px; }
+  .tb-row { padding: 5px; }
+  .tb-row button { min-height: 42px; gap: 1px; }
+  .tb-row svg { width: 21px; height: 21px; }
+  .tb-row span { font-size: 11.5px; }
+  .tb-dot svg { width: 21px; height: 21px; }
+  .page { padding-top: 8px; }
+  .section-title { font-size: 1.05em; margin: 0 0 .45em; }
+  .fav-wrap .fav-row .card, .doc { height: 6.8em; }
+  .fav-wrap .fav-row .card { padding: .6em .8em; }
+  .board { padding-left: 5.2em; border-width: 4px; }
+  .board b { font-size: 2.5em; }
+  .doc-man { height: 6.4em; bottom: .2em; }
+  .module { padding: .8em 1em; }
+  .module .mod-name { font-size: 1.5em; margin-top: .3em; }
+  .module .mod-ic { width: 2.6em; height: 2.6em; }
+  .module .mod-ic svg { width: 1.4em; height: 1.4em; }
 }
