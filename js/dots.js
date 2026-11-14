@@ -191,49 +191,65 @@
       const portrait = h > w;
       const ax = portrait ? 0 : w * 0.5, aw = portrait ? w : w * 0.5, ah = portrait ? h * 0.55 : h;
       const u = Math.min(aw, ah) / 100;
-      const sx = ax + aw * 0.4;                  // dripper / carafe centre line
-      const top = ah * 0.14;
+      const sx = ax + aw * 0.3;                  // dripper / carafe centre line
+      const top = ah * 0.17;
       const live = !v.paused;
 
-      // carafe: glass body with the coffee rising inside, handle on the right
-      const cTop = top + 20 * u, cBot = ah * 0.8, cW = 30 * u, neck = 17 * u;
+      // coffee server: round glass belly, pouring spout on the left, yellow handle on the right
+      const cTop = top + 20 * u, cBot = Math.min(ah * 0.8, cTop + 46 * u);
+      const mouth = 26 * u, belly = 44 * u, bellyY = cBot - 15 * u;
+      const L = sx - belly / 2, Rr = sx + belly / 2;
       const body = () => {
         ctx.beginPath();
-        ctx.moveTo(sx - neck / 2, cTop);
-        ctx.lineTo(sx + neck / 2, cTop);
-        ctx.bezierCurveTo(sx + neck / 2, cTop + 8 * u, sx + cW / 2, cTop + 12 * u, sx + cW / 2, cTop + 24 * u);
-        ctx.lineTo(sx + cW / 2, cBot - 7 * u);
-        ctx.quadraticCurveTo(sx + cW / 2, cBot, sx + cW / 2 - 7 * u, cBot);
-        ctx.lineTo(sx - cW / 2 + 7 * u, cBot);
-        ctx.quadraticCurveTo(sx - cW / 2, cBot, sx - cW / 2, cBot - 7 * u);
-        ctx.lineTo(sx - cW / 2, cTop + 24 * u);
-        ctx.bezierCurveTo(sx - cW / 2, cTop + 12 * u, sx - neck / 2, cTop + 8 * u, sx - neck / 2, cTop);
+        ctx.moveTo(sx + mouth / 2, cTop);
+        ctx.lineTo(sx - mouth / 2, cTop);
+        ctx.quadraticCurveTo(sx - mouth / 2 - 4.5 * u, cTop - 2.2 * u, sx - mouth / 2 - 5.5 * u, cTop - 0.6 * u); // spout tip
+        ctx.quadraticCurveTo(sx - mouth / 2 - 2 * u, cTop + 2.5 * u, sx - mouth / 2 - 0.5 * u, cTop + 5 * u);
+        ctx.bezierCurveTo(L + 2 * u, cTop + 12 * u, L, bellyY - 12 * u, L, bellyY);
+        ctx.bezierCurveTo(L, cBot - 4 * u, L + 6 * u, cBot, L + 13 * u, cBot);
+        ctx.lineTo(Rr - 13 * u, cBot);
+        ctx.bezierCurveTo(Rr - 6 * u, cBot, Rr, cBot - 4 * u, Rr, bellyY);
+        ctx.bezierCurveTo(Rr, bellyY - 12 * u, Rr - 2 * u, cTop + 12 * u, sx + mouth / 2 + 0.5 * u, cTop + 5 * u);
         ctx.closePath();
       };
-      // shadow on the "table"
+      // shadow on the table
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath(); ctx.ellipse(sx, cBot + 1.5 * u, cW * 0.62, 2.2 * u, 0, 0, Math.PI * 2); ctx.fill();
-      // handle
-      ctx.save(); ctx.lineCap = 'round';
-      const hp = () => { ctx.beginPath(); ctx.moveTo(sx + cW / 2, cTop + 26 * u); ctx.bezierCurveTo(sx + cW / 2 + 11 * u, cTop + 26 * u, sx + cW / 2 + 11 * u, cBot - 16 * u, sx + cW / 2, cBot - 14 * u); };
-      hp(); ctx.strokeStyle = PAPER; ctx.lineWidth = 5.2 * u; ctx.stroke();
-      hp(); ctx.strokeStyle = INK; ctx.lineWidth = 3.4 * u; ctx.stroke();
-      hp(); ctx.strokeStyle = '#303D31'; ctx.lineWidth = 1.3 * u; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(sx, cBot + 1.5 * u, belly * 0.58, 2.2 * u, 0, 0, Math.PI * 2); ctx.fill();
+      // handle: a fat yellow loop, drawn before the glass so the glass sits over its ends
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const hx = Rr - 3 * u;
+      const hp = () => { ctx.beginPath(); ctx.moveTo(hx - 4 * u, cTop + 7 * u); ctx.bezierCurveTo(hx + 13 * u, cTop + 5 * u, hx + 14 * u, bellyY - 2 * u, hx, bellyY - 1 * u); };
+      hp(); ctx.strokeStyle = PAPER; ctx.lineWidth = 7.6 * u; ctx.stroke();
+      hp(); ctx.strokeStyle = INK; ctx.lineWidth = 5.4 * u; ctx.stroke();
+      hp(); ctx.strokeStyle = YEL; ctx.lineWidth = 3.2 * u; ctx.stroke();
       ctx.restore();
-      const fillTop = cBot - 2 * u - level * (cBot - cTop - 14 * u);
-      sticker(ctx, u, body, 'rgba(245,248,242,0.10)', {
+      const fillTop = cBot - 1.5 * u - level * (cBot - cTop - 12 * u);
+      sticker(ctx, u, body, 'rgba(245,248,242,0.12)', {
         shade: () => {
           if (level > 0.005) {
             ctx.fillStyle = LOL;
-            ctx.beginPath(); ctx.moveTo(ax, ah);
-            for (let x = sx - cW; x <= sx + cW; x += 2 * u) ctx.lineTo(x, fillTop + Math.sin(t / 380 + x / (5 * u)) * 0.9 * u * (live ? 1 : 0.3));
-            ctx.lineTo(sx + cW, ah); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = LOL_SH; ctx.fillRect(sx + cW * 0.22, fillTop, cW, ah);   // cel shade on the coffee
+            ctx.beginPath(); ctx.moveTo(L - 4 * u, ah);
+            for (let x = L - 4 * u; x <= Rr + 4 * u; x += 2 * u) ctx.lineTo(x, fillTop + Math.sin(t / 380 + x / (5 * u)) * 0.8 * u * (live ? 1 : 0.3));
+            ctx.lineTo(Rr + 4 * u, ah); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = LOL_SH;                                                     // cel shade on the coffee
+            ctx.beginPath(); ctx.ellipse(Rr + 2 * u, cBot, belly * 0.42, (cBot - fillTop) + 4 * u, 0, 0, Math.PI * 2); ctx.fill();
           }
-          ctx.fillStyle = 'rgba(245,248,242,0.35)';                                   // glass glint
-          ctx.beginPath(); ctx.roundRect(sx - cW * 0.36, cTop + 20 * u, 3 * u, (cBot - cTop) * 0.45, 2 * u); ctx.fill();
+          // glass glints: a long curved one on the left belly, a dot near the top
+          ctx.strokeStyle = 'rgba(245,248,242,0.55)'; ctx.lineCap = 'round'; ctx.lineWidth = 2.2 * u;
+          ctx.beginPath(); ctx.moveTo(L + 6 * u, cTop + 16 * u); ctx.quadraticCurveTo(L + 3.2 * u, bellyY, L + 7 * u, cBot - 6 * u); ctx.stroke();
+          ctx.fillStyle = 'rgba(245,248,242,0.55)';
+          ctx.beginPath(); ctx.arc(L + 8 * u, cTop + 11 * u, 1.2 * u, 0, Math.PI * 2); ctx.fill();
+          // measuring marks on the right
+          ctx.strokeStyle = 'rgba(245,248,242,0.4)'; ctx.lineWidth = 0.9 * u;
+          for (let k = 1; k <= 3; k++) {
+            const yy = cBot - k * 9 * u, w0 = k === 2 ? 6 * u : 4 * u;
+            ctx.beginPath(); ctx.moveTo(Rr - 9 * u - w0, yy); ctx.lineTo(Rr - 9 * u, yy); ctx.stroke();
+          }
         },
       });
+      // the rim: a thin glass band on the mouth
+      const rimP = () => { ctx.beginPath(); ctx.roundRect(sx - mouth / 2 - 0.5 * u, cTop - 1.4 * u, mouth + 1 * u, 2.4 * u, 1.2 * u); };
+      sticker(ctx, u, rimP, 'rgba(245,248,242,0.25)', { edge: 1.8, ink: 0.9 });
 
       // stream from the dripper tip down to the coffee
       const tipY = top + 21 * u;
@@ -292,7 +308,7 @@
           ctx.strokeStyle = `rgba(245,248,242,${0.22 * Math.sin(ph * Math.PI)})`;
           ctx.beginPath();
           for (let j = 0; j <= 10; j++) {
-            const yy = dy0 - 8 * u - ph * 14 * u - j * 1.2 * u;
+            const yy = dy0 - 6 * u - ph * 8 * u - j * 0.9 * u;
             const xx = sx + k * 9 * u + Math.sin(j * 0.7 + t / 500 + k) * 2 * u;
             j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy);
           }
@@ -302,7 +318,7 @@
       }
 
       // Majnoon next to the carafe: running while it grinds, writing notes while it pours, asleep when paused
-      const mx = ax + aw * 0.78, foot2 = cBot + 1.5 * u;
+      const mx = ax + aw * 0.8, foot2 = cBot + 1.5 * u;
       if (v.paused) {
         majnoon(ctx, POSE.sleep, mx - 2 * u, foot2, 26 * u, 0);
         ctx.fillStyle = 'rgba(245,248,242,0.7)'; ctx.textAlign = 'center'; ctx.direction = 'ltr';
@@ -314,11 +330,11 @@
         }
         ctx.globalAlpha = 1;
       } else if (v.grinding) {
-        majnoon(ctx, POSE.run, mx, foot2, 44 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
+        majnoon(ctx, POSE.run, mx, foot2, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
       } else if (v.pouring) {
-        majnoon(ctx, POSE.write, mx, foot2, 44 * u, Math.abs(Math.sin(t / 420)) * 1.2 * u);
+        majnoon(ctx, POSE.write, mx, foot2, 40 * u, Math.abs(Math.sin(t / 420)) * 1.2 * u);
       } else {
-        majnoon(ctx, POSE.glasses, mx, foot2, 44 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
+        majnoon(ctx, POSE.glasses, mx, foot2, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
       }
     });
     return f;
