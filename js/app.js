@@ -981,6 +981,9 @@
   });
 
   function renderSettings() {
+    /* رقم النسخة من رابط app.js (?v=)، عشان نعرف وش يشغّل الجوال (المالك ١٥ نوفمبر: «للحين ما تعدل») */
+    const vs = (document.querySelector('script[src*="app.js"]') || {}).src || '';
+    setText($('#st-ver'), (vs.match(/v=(\d+)/) || [])[1] || '?');
     renderCounter();
     renderBackup();
     $('#st-machine').textContent = link.connected ? link.name : { connecting: 'يتصل…', searching: 'يبحث عن ' + (link.name || 'المكينة') + '…' }[link.state] || 'غير مربوطة';
