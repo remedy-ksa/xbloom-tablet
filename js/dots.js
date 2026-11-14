@@ -1,5 +1,5 @@
 // Canvas scenes in Remedy's look: idle clock with Majnoon drifting his car,
-// brewing scene (Remedy-drawn dripper + carafe, Majnoon), "ENJOY" finish.
+// brewing scene (Remedy-drawn dripper + carafe, Majnoon), grinder and scale screens, "ENJOY" finish.
 (function (root) {
   'use strict';
   const GROUND = '#131A14';
@@ -386,5 +386,165 @@
     return f;
   }
 
-  root.Dots = { clock, brew, finish };
+  // ---- grinder screen: Remedy-drawn grinder, grounds falling into the cup while it grinds ----
+  // get() returns {grinding}
+  function grinder(canvas, get) {
+    const f = new Field(canvas);
+    const grounds = [];
+    let level = 0.12, spin = 0;
+    f.start((F, t) => {
+      const { w, h } = F.size();
+      const ctx = F.ctx; F.clear();
+      const on = !!(get() || {}).grinding;
+      const u = Math.min(w / 1.25, h) / 100;
+      const cx0 = w * 0.36, y0 = h / 2 - 46 * u;
+      const jit = on ? Math.sin(t / 23) * 0.35 * u : 0, cx = cx0 + jit;
+      if (on) { spin += 0.35; level = Math.min(0.92, level + 0.0016); }
+      const baseY = y0 + 86 * u;
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(cx0, baseY + 6.5 * u, 24 * u, 2.4 * u, 0, 0, Math.PI * 2); ctx.fill();
+      // back column that carries the body down to the base
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 13 * u, y0 + 48 * u, 26 * u, 40 * u, 3 * u); }, YEL_SH);
+      // base
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx0 - 21 * u, baseY, 42 * u, 6 * u, 3 * u); }, YEL, {
+        shade: () => { ctx.fillStyle = YEL_SH; ctx.fillRect(cx0 - 21 * u, baseY + 3.6 * u, 42 * u, 3 * u); },
+      });
+      // hopper: glass with beans, yellow lid
+      const hTop = y0 + 4 * u, hBot = y0 + 22 * u;
+      const hopper = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx - 15 * u, hTop); ctx.lineTo(cx + 15 * u, hTop);
+        ctx.lineTo(cx + 8 * u, hBot); ctx.lineTo(cx - 8 * u, hBot); ctx.closePath();
+      };
+      sticker(ctx, u, hopper, 'rgba(245,248,242,0.12)', {
+        shade: () => {
+          ctx.fillStyle = LOL_SH; ctx.fillRect(cx - 16 * u, hTop + 7 * u, 32 * u, 16 * u);
+          ctx.strokeStyle = INK; ctx.lineWidth = 0.6 * u;
+          for (let k = 0; k < 14; k++) {
+            const bx = cx + ((k * 37) % 26 - 13) * u * 0.9, by = hTop + 8 * u + ((k * 53) % 10) * u + (on ? Math.sin(t / 60 + k) * 0.4 * u : 0);
+            ctx.fillStyle = k % 3 ? LOL : '#C98247';
+            ctx.beginPath(); ctx.ellipse(bx, by, 2 * u, 1.4 * u, k, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          }
+          ctx.strokeStyle = 'rgba(245,248,242,0.55)'; ctx.lineWidth = 1.6 * u; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(cx - 11 * u, hTop + 3 * u); ctx.lineTo(cx - 7 * u, hBot - 3 * u); ctx.stroke();
+        },
+      });
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 16.5 * u, hTop - 4 * u, 33 * u, 4.4 * u, 2.2 * u); }, YEL);
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 3 * u, hTop - 6.5 * u, 6 * u, 3 * u, 1.5 * u); }, YEL_SH);
+      // body with the dial
+      const bTop = y0 + 22 * u, bBot = y0 + 56 * u;
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 14 * u, bTop, 28 * u, bBot - bTop, 4 * u); }, YEL, {
+        shade: () => { ctx.fillStyle = YEL_SH; ctx.fillRect(cx + 6 * u, bTop, 10 * u, bBot - bTop); },
+      });
+      const dy = bTop + 13 * u;
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.arc(cx, dy, 5.5 * u, 0, Math.PI * 2); }, INK, { ink: 0.6 });
+      ctx.save(); ctx.translate(cx, dy); ctx.rotate(spin);
+      ctx.strokeStyle = PAPER; ctx.lineWidth = 1.4 * u; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -1 * u); ctx.lineTo(0, -4 * u); ctx.stroke();
+      ctx.restore();
+      if (on) { ctx.fillStyle = '#8FD694'; ctx.beginPath(); ctx.arc(cx, bTop + 25 * u, 1.2 * u, 0, Math.PI * 2); ctx.fill(); }
+      // spout
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 3.5 * u, bBot - 1 * u, 7 * u, 6 * u, 1.5 * u); }, INK, { ink: 0.6 });
+      // catch cup on the base
+      const cTop = y0 + 68 * u, cBot = baseY;
+      const cup = () => {
+        ctx.beginPath();
+        ctx.moveTo(cx0 - 9.5 * u, cTop); ctx.lineTo(cx0 + 9.5 * u, cTop);
+        ctx.lineTo(cx0 + 8 * u, cBot - 1.5 * u); ctx.quadraticCurveTo(cx0 + 8 * u, cBot, cx0 + 6.5 * u, cBot);
+        ctx.lineTo(cx0 - 6.5 * u, cBot); ctx.quadraticCurveTo(cx0 - 8 * u, cBot, cx0 - 8 * u, cBot - 1.5 * u);
+        ctx.closePath();
+      };
+      const gTop = cBot - level * (cBot - cTop - 3 * u);
+      sticker(ctx, u, cup, 'rgba(245,248,242,0.14)', {
+        shade: () => {
+          ctx.fillStyle = LOL;
+          ctx.beginPath(); ctx.moveTo(cx0 - 12 * u, cBot + u); ctx.lineTo(cx0 - 12 * u, gTop + 1.5 * u);
+          ctx.quadraticCurveTo(cx0, gTop - 2 * u, cx0 + 12 * u, gTop + 1.5 * u); ctx.lineTo(cx0 + 12 * u, cBot + u); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = LOL_SH; ctx.fillRect(cx0 + 3 * u, gTop, 8 * u, cBot - gTop + u);
+          ctx.strokeStyle = 'rgba(245,248,242,0.5)'; ctx.lineWidth = 1.4 * u; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(cx0 - 6 * u, cTop + 3 * u); ctx.lineTo(cx0 - 5.5 * u, cBot - 4 * u); ctx.stroke();
+        },
+      });
+      // grounds falling from the spout
+      if (on && Math.random() < 0.8) grounds.push({ x: cx + (Math.random() - 0.5) * 3 * u, y: bBot + 5 * u, v: 0.4 * u });
+      for (let i = grounds.length - 1; i >= 0; i--) {
+        const g = grounds[i]; g.v += 0.06 * u; g.y += g.v;
+        if (g.y > gTop) { grounds.splice(i, 1); continue; }
+        ctx.fillStyle = LOL; ctx.beginPath(); ctx.arc(g.x, g.y, 0.8 * u, 0, Math.PI * 2); ctx.fill();
+      }
+      // Majnoon: running while it grinds, otherwise watching
+      const mx = w * 0.8, foot = baseY + 6 * u;
+      if (on) majnoon(ctx, POSE.run, mx, foot, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
+      else majnoon(ctx, POSE.glasses, mx, foot, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
+    });
+    return f;
+  }
+
+  // ---- scale screen: Remedy-drawn kitchen scale, a mug on it once there is weight ----
+  // get() returns the weight in grams
+  function scale(canvas, get) {
+    const f = new Field(canvas);
+    let shown = 0;
+    f.start((F, t) => {
+      const { w, h } = F.size();
+      const ctx = F.ctx; F.clear();
+      const g = +get() || 0;
+      shown += (g - shown) * 0.12;
+      const u = Math.min(w / 1.25, h) / 100;
+      const cx = w * 0.38, baseTop = h / 2 + 16 * u;
+      const press = Math.min(1.2, Math.max(0, shown) / 250) * u;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(cx, baseTop + 15 * u, 36 * u, 2.6 * u, 0, 0, Math.PI * 2); ctx.fill();
+      // feet and base
+      for (const k of [-1, 1]) sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx + k * 24 * u - 4 * u, baseTop + 11 * u, 8 * u, 3.5 * u, 1.2 * u); }, INK, { ink: 0.6 });
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 34 * u, baseTop, 68 * u, 12.5 * u, 4 * u); }, YEL, {
+        shade: () => { ctx.fillStyle = YEL_SH; ctx.fillRect(cx - 35 * u, baseTop + 8.5 * u, 70 * u, 5 * u); },
+      });
+      // display
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 14 * u, baseTop + 2.6 * u, 28 * u, 7 * u, 1.8 * u); }, INK, { ink: 0.6 });
+      ctx.save(); ctx.direction = 'ltr'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#8FD694'; ctx.font = `700 ${5.2 * u}px "Roboto Condensed", sans-serif`;
+      ctx.fillText(Math.max(0, shown).toFixed(1) + 'g', cx, baseTop + 6.3 * u);
+      ctx.restore();
+      // plate
+      const plateY = baseTop - 4.6 * u + press;
+      sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 37 * u, plateY, 74 * u, 3.6 * u, 1.8 * u); }, '#D8E0D5');
+      // mug once something is on the plate
+      if (shown > 3) {
+        const mTop = plateY - 25 * u, mBot = plateY - 0.2 * u;
+        ctx.save(); ctx.lineCap = 'round';
+        const hp = () => { ctx.beginPath(); ctx.moveTo(cx + 9 * u, mTop + 6 * u); ctx.bezierCurveTo(cx + 19 * u, mTop + 5 * u, cx + 19 * u, mTop + 19 * u, cx + 9 * u, mTop + 18 * u); };
+        hp(); ctx.strokeStyle = PAPER; ctx.lineWidth = 6.4 * u; ctx.stroke();
+        hp(); ctx.strokeStyle = INK; ctx.lineWidth = 4.6 * u; ctx.stroke();
+        hp(); ctx.strokeStyle = PAPER; ctx.lineWidth = 2.6 * u; ctx.stroke();
+        ctx.restore();
+        sticker(ctx, u, () => { ctx.beginPath(); ctx.roundRect(cx - 12 * u, mTop, 24 * u, mBot - mTop, [2 * u, 2 * u, 6 * u, 6 * u]); }, PAPER, {
+          shade: () => {
+            ctx.fillStyle = '#D8E0D5'; ctx.fillRect(cx + 4 * u, mTop, 9 * u, mBot - mTop);
+            ctx.fillStyle = YEL; ctx.fillRect(cx - 13 * u, mTop + 9 * u, 26 * u, 5 * u);   // yellow band
+          },
+        });
+        ctx.fillStyle = LOL; ctx.strokeStyle = INK; ctx.lineWidth = 0.8 * u;
+        ctx.beginPath(); ctx.ellipse(cx, mTop + 0.6 * u, 10.5 * u, 2 * u, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // steam
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 1.5 * u;
+        for (const k of [-1, 1]) {
+          const ph = (t / 1700 + (k + 1) * 0.25) % 1;
+          ctx.strokeStyle = `rgba(245,248,242,${0.25 * Math.sin(ph * Math.PI)})`;
+          ctx.beginPath();
+          for (let j = 0; j <= 10; j++) {
+            const yy = mTop - 3 * u - ph * 8 * u - j * 0.9 * u, xx = cx + k * 4.5 * u + Math.sin(j * 0.7 + t / 500 + k) * 1.8 * u;
+            j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      majnoon(ctx, POSE.glasses, w * 0.82, baseTop + 14.5 * u, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
+    });
+    return f;
+  }
+
+  root.Dots = { clock, brew, finish, grinder, scale };
 })(typeof self !== 'undefined' ? self : this);

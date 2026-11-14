@@ -66,6 +66,18 @@ svg { width: 1em; height: 1em; flex: none; }
 .fav-row { display: flex; gap: var(--g); overflow-x: auto; padding: 4px 4px 6px; margin: -4px -4px 0; scrollbar-width: none; }
 .fav-row::-webkit-scrollbar { display: none; }
 .fav-row .card { flex: 0 0 clamp(190px, 22vw, 300px); }
+/* the sober doctor (Majnoon with his glasses, from remedy.sa) next to a chalkboard with today's cups */
+.fav-wrap { display: flex; gap: var(--g); align-items: flex-end; }
+.fav-wrap .fav-row { flex: 1; min-width: 0; }
+.doc { flex: none; display: flex; align-items: flex-end; gap: .2em; height: 10em; padding-bottom: 6px; }
+.board { height: 8.6em; min-width: 14em; padding: .5em 1.4em; border-radius: 12px; background: var(--green); border: 6px solid var(--yellow);
+  box-shadow: 0 0 0 2px var(--ink), 0 0 0 4.5px #F5F8F2, 0 8px 18px #0006; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #F5F8F2; line-height: 1.1; }
+.board small { font-size: 1.05em; font-weight: 800; opacity: .9; }
+.board b { font-family: 'Concert One', sans-serif; font-weight: 400; font-size: 3.2em; direction: ltr; color: var(--yellow); }
+.board b span:first-child { color: #F5F8F2; opacity: .75; font-size: .7em; }
+.board i { font-style: normal; font-size: .95em; opacity: .8; }
+.doc-man { height: 9.6em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
+@media (max-width: 700px) { .doc { display: none; } }
 .fav-empty { color: var(--muted); padding: 2em 0; }
 .modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g); min-height: 11em; }
 .module { position: relative; border-radius: var(--r); padding: 1.2em 1.3em; text-align: right; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; overflow: hidden; background: var(--s1); border: 1px solid var(--s2); transition: transform .16s var(--ease), border-color .2s var(--ease); }

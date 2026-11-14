@@ -138,7 +138,17 @@
     b.addEventListener('click', () => openDetail(p.uid));
     return b;
   }
+  // cups brewed from this panel today, written on the sober doctor's board on the home screen
+  const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const today = Object.assign({ d: dayKey(), n: 0 }, store.get('today', {}));
+  function renderToday() {
+    if (today.d !== dayKey()) { today.d = dayKey(); today.n = 0; store.set('today', today); }
+    const n = today.n;
+    $('#today-n').textContent = n;
+    $('#today-w').textContent = n === 1 ? 'كوب' : n === 2 ? 'كوبين' : n >= 3 && n <= 10 ? 'أكواب' : 'كوب';
+  }
   function renderHome() {
+    renderToday();
     const row = $('#fav-row');
     row.innerHTML = '';
     let list = lib.filter((p) => p.pinned).concat(lib.filter((p) => p.favorite && !p.pinned));
@@ -442,7 +452,7 @@
   $$('#br-pattern button').forEach((b) => b.addEventListener('click', () => setPattern(+b.dataset.pat, true)));
   setPattern(mod.bPat, false);
   function setPouring(on) {
-    S.pouring = on; if (on) { S.pourStart = Date.now(); if (artFx) artFx.view.progress = 0; }
+    S.pouring = on; if (on) { S.pourStart = Date.now(); if (artFx && artFx.view) artFx.view.progress = 0; }
     actState($('#br-play'), on, 'ابدأ', 'وقّف');
   }
   $('#br-play').addEventListener('click', async () => {
@@ -479,22 +489,29 @@
   const fmtSW = (ms) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 
   // ---------------------------------------------------------------- open / close modules
-  // dripper + server drawing on the pour screen; the server fills while it pours
+  // a Remedy drawing on each machine screen: grinder, dripper + server (fills while it pours), scale
   let artFx = null;
-  function startArt() { if (artFx) artFx.stop(); artFx = Dots.brew($('#br-art'), { full: true }); }
+  function startArt(m) {
+    if (artFx) artFx.stop();
+    artFx = m === 'grinder' ? Dots.grinder($('#gr-art'), () => ({ grinding: S.grinding }))
+      : m === 'scale' ? Dots.scale($('#sc-art'), () => S.weight)
+      : Dots.brew($('#br-art'), { full: true });
+  }
+  function stopArt() { if (artFx) { artFx.stop(); artFx = null; } }
   function openModule(m) {
     if (S.flow !== 'idle') return toast('فيه وصفة شغالة على المكينة');
     show(m);
-    if (m === 'brewer' && !link.connected) startArt();
+    startArt(m);
     if (!link.connected) { toast('المكينة مو متصلة'); return; }
     if (m === 'grinder') link.cmd('grinderEnter', mod.gSize, mod.gRpm);
-    if (m === 'brewer') { startArt(); link.cmd('brewerEnter', XB.patternByte(mod.bPat), XB.tempDisplayToWire(mod.bTemp)); }
+    if (m === 'brewer') { link.cmd('brewerEnter', XB.patternByte(mod.bPat), XB.tempDisplayToWire(mod.bTemp)); }
     if (m === 'scale') link.cmd('scaleEnter');
   }
   function closeModule(m) {
     if (m === 'grinder') { if (S.grinding) link.cmd('grinderStop'); setGrinding(false); link.cmd('quitGrinder'); }
-    if (m === 'brewer') { if (S.pouring) link.cmd('brewerStop'); setPouring(false); link.cmd('quitBrewer'); if (artFx) { artFx.stop(); artFx = null; } }
+    if (m === 'brewer') { if (S.pouring) link.cmd('brewerStop'); setPouring(false); link.cmd('quitBrewer'); }
     if (m === 'scale') link.cmd('quitScale');
+    stopArt();
     show('home'); setTab(S.tab);
   }
   $$('[data-open]').forEach((b) => b.addEventListener('click', () => openModule(b.dataset.open)));
@@ -788,7 +805,7 @@
     refreshDetail(); renderStatus();
   });
   link.on('done', () => {
-    if (!SIM) { counter.cups += 1; saveCounter(); }
+    if (!SIM) { counter.cups += 1; saveCounter(); renderToday(); today.n += 1; store.set('today', today); renderToday(); }
     const p = find(S.active);
     const ml = S.water > 0 ? S.water : p ? totalWater(p) : 0;
     const ms = S.brewStart ? Date.now() - S.brewStart : 0;
@@ -839,13 +856,14 @@
 
   setInterval(() => {
     tickClock();
+    if (today.d !== dayKey()) renderToday();
     renderStatus();
     if (S.screen === 'detail' && S.active === S.cur) refreshDetail();
     updateBrew();
     $('#br-timer').textContent = fmtSW(S.pouring ? Date.now() - S.pourStart : 0);
     const pourP = S.pouring ? Math.min(1, (Date.now() - S.pourStart) / (mod.bVol / mod.bFlow * 1000)) : 0;
     $('#br-play').style.setProperty('--p', pourP.toFixed(3));
-    if (artFx) { if (S.pouring) artFx.view.progress = pourP * 0.85; artFx.view.pouring = S.pouring; }
+    if (artFx && S.screen === 'brewer') { if (S.pouring) artFx.view.progress = pourP * 0.85; artFx.view.pouring = S.pouring; }
     $('#sc-timer').textContent = fmtSW(sw.elapsed + (sw.running ? Date.now() - sw.start : 0));
     if (S.pouring && Date.now() - S.pourStart > (mod.bVol / mod.bFlow + 8) * 1000) setPouring(false);
     const idle = Date.now() - S.lastTouch;
