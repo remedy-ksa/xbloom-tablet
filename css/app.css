@@ -11,7 +11,7 @@
   --r: 14px; --r-sm: 12px; --m: clamp(16px, 2.2vw, 32px); --g: clamp(10px, 1.4vw, 20px);
   --ease: cubic-bezier(.33, 1, .68, 1);
   --font: 'Baloo Bhaijaan 2', system-ui, sans-serif;
-  --num: 'Concert One', 'Baloo Bhaijaan 2', system-ui, sans-serif; /* خط ريمدي للأرقام واللاتيني (Roboto للستكير بس) */
+  --num: 'Roboto Condensed', 'Baloo Bhaijaan 2', system-ui, sans-serif;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -22,7 +22,7 @@ h2.set-title, .section-title h2 { margin: 0; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
 input { font: inherit; }
 svg { width: 1em; height: 1em; flex: none; }
-.num { font-family: var(--num); font-weight: 400; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.num { font-family: var(--num); font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
 .en { font-family: 'Concert One', var(--font); font-weight: 400; unicode-bidi: isolate; }
 .muted { color: var(--muted); }
 [hidden] { display: none !important; }
@@ -209,7 +209,7 @@ svg { width: 1em; height: 1em; flex: none; }
 .counter { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5em; margin: .4em 0 .6em; }
 .counter div { background: var(--s2); border-radius: 14px; padding: .7em .5em; text-align: center; display: flex; flex-direction: column; gap: .2em; }
 .counter small { color: var(--muted); font-size: .8em; }
-.counter b { font-size: 1.6em; color: var(--text); font-family: 'Concert One', sans-serif; font-weight: 400; }
+.counter b { font-size: 1.6em; color: var(--text); font-family: 'Roboto Condensed', sans-serif; }
 .grind-seg { display: flex; width: 100%; }
 .grind-seg button { flex: 1; font-weight: 700; padding: .6em 1em; }
 .grind-seg button.on[data-g="0"] { background: var(--yellow); color: var(--on-yellow); }
