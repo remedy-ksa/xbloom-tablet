@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
 
-  const SERVICE_HINTS = ['0000e0ff-3c17-d293-8e48-14fe2e4da212', 0xffe0];
+  const SERVICE_HINTS = ['0000e0ff-3c17-d293-8e48-14fe2e4da212', '0000ffe0-0000-1000-8000-00805f9b34fb'];
   const UUID_TX = '0000ffe1-0000-1000-8000-00805f9b34fb'; // write
   const UUID_RX = '0000ffe2-0000-1000-8000-00805f9b34fb'; // notify
   const NAME_PREFIX = 'XBLOOM';

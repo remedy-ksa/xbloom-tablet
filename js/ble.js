@@ -14,7 +14,10 @@
   // The machine's main service is a custom 128-bit UUID (FFE1 write / FFE2 notify live inside it).
   // Chrome only shows a page the services listed here, so it must be on the list.
   const XB_SERVICE = '0000e0ff-3c17-d293-8e48-14fe2e4da212';
-  const OPTIONAL_SERVICES = [XB_SERVICE, 0xffe0, 0xfff0, 0xffe5, 0x18f0, 0xfee7];
+  /* نصوص UUID كاملة لا أرقام: Chrome يقبل 0xffe0، وBluefy على الآيفون يرفض الطلب كله
+     («Request payload could not be parsed»، المالك ١٤ نوفمبر) */
+  const u16 = (n) => `0000${n.toString(16).padStart(4, '0')}-0000-1000-8000-00805f9b34fb`;
+  const OPTIONAL_SERVICES = [XB_SERVICE, u16(0xffe0), u16(0xfff0), u16(0xffe5), u16(0x18f0), u16(0xfee7)];
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // Shared: frame handling, echo waiting, command queue.
