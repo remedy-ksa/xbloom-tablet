@@ -1049,7 +1049,7 @@
     const btn = $('#cc-btn');
     btn.textContent = !link.supported && ios ? 'حمّل Bluefy' : 'اربط';
     btn.hidden = !link.supported && !ios;
-    if (!link.supported && ios) $('#cc-sub').textContent = 'الآيفون ما يسمح للمتصفح بالبلوتوث، فالربط يحتاج تطبيق ريمدي (قريب في App Store). ولين يطلع، افتح الصفحة في تطبيق Bluefy المجاني.';
+    if (!link.supported && ios) $('#cc-sub').textContent = 'الربط من الآيفون يحتاج تطبيق ريمدي. ولين ينزل في App Store، افتحها في Bluefy.';
     else if (!link.supported) $('#cc-sub').textContent = 'هذا المتصفح ما يدعم البلوتوث. افتح الصفحة في Google Chrome.';
     else if (stuck) $('#cc-sub').textContent = 'ما لقيت المكينة. تأكد إنها شغالة وقريبة، واضغط اربط.';
     else $('#cc-sub').textContent = 'شغّل المكينة وقرّب الجهاز منها، وبعدين اضغط اربط.';
