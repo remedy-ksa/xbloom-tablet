@@ -247,11 +247,16 @@
       let tx = null, rx = null;
       let services = [];
       try { services = await server.getPrimaryServices(); } catch (e) { this.log('services: ' + e.message); }
-      if (!services.some((s) => s.uuid === XB_SERVICE)) {
+      if (!services.some((s) => String(s.uuid).toLowerCase() === XB_SERVICE)) {
         try { services.unshift(await server.getPrimaryService(XB_SERVICE)); } catch (e) { this.log('e0ff: ' + e.message); }
       }
       // match FFE1 / FFE2 by their short id, whatever base UUID the firmware uses
-      const short = (u) => u.slice(4, 8).toLowerCase();
+      /* Bluefy على الآيفون يرجّع المعرّف قصير («FFE1» أو «0xffe1») بدل الطويل، فكان القص يطلع فاضي
+         (المالك ١٤ نوفمبر: «ما قدرت أوصل لقناة المكينة v8: e0ff/ e0ff/ …») */
+      const short = (u) => {
+        const x = String(u).toLowerCase().replace(/^0x/, '');
+        return x.length <= 8 ? x.padStart(8, '0').slice(4, 8) : x.slice(4, 8);
+      };
       const seen = [];
       for (const s of services) {
         try {
