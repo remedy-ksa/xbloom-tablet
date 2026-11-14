@@ -313,7 +313,7 @@
     $('#d-sub').innerHTML = `<span class="num">${Number(totalWater(p))} ml · 1:${fmtNum(ratio(p))}</span> · ${p.pours.length} صبّات`;
     /* الثلج سطر لحاله: «حط ١٢٠ جم ثلج في الكوب» تعليمة للزبون، مو رقم وسط الأرقام */
     const ice = $('#d-ice'); ice.hidden = !p.ice_g; if (p.ice_g) ice.innerHTML = `حط <span class="num">${Number(p.ice_g)}g</span> ثلج في الكوب`;
-    $('#d-fav').textContent = p.favorite ? '♥' : '♡';
+    $('#d-fav use').setAttribute('href', p.favorite ? '#i-heart-fill' : '#i-heart');
     const box = $('#d-box');
     if (p.crop && p.kind === 'remedy') { box.src = `icons/boxes/${p.crop}.webp`; box.alt = 'علبة ' + p.name.split(' · ')[0]; box.hidden = false; }
     else { box.hidden = true; box.removeAttribute('src'); }
@@ -407,7 +407,7 @@
   $('#d-fav').addEventListener('click', () => {
     const p = find(S.cur); if (!p) return;
     p.favorite = !p.favorite; saveLib();
-    $('#d-fav').textContent = p.favorite ? '♥' : '♡';
+    $('#d-fav use').setAttribute('href', p.favorite ? '#i-heart-fill' : '#i-heart');
   });
   $('#d-edit').addEventListener('click', () => openEditor(S.cur));
   $('[data-back]').addEventListener('click', () => { show('home'); setTab(S.tab); });
