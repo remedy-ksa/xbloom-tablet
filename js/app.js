@@ -998,7 +998,10 @@
     $$('#st-write button').forEach((b) => b.classList.toggle('on', b.dataset.write === (link.writeMode || 'auto')));
   }
   $('#btn-connect').addEventListener('click', connectTap);
-  $('#cc-btn').addEventListener('click', connectTap);
+  $('#cc-btn').addEventListener('click', () => {
+    if (!link.supported) { location.href = 'https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055'; return; }
+    connectTap();
+  });
   async function connectTap() {
     try { await link.pick(); } catch (e) {
       if (e && e.name === 'NotFoundError') return;  // user closed the chooser
@@ -1040,9 +1043,16 @@
     const stuck = link.state === 'searching' && Date.now() - S.linkSince > 20000;
     const want = S.screen === 'home' && S.tab === 'home' && (link.state === 'idle' || stuck);
     card.hidden = !want;
-    if (!link.supported) $('#cc-sub').textContent = 'هذا المتصفح ما يدعم البلوتوث. افتح الصفحة في Google Chrome.';
+    /* الآيفون والآيباد: أبل تمنع البلوتوث على كل متصفحاتها، فنودّيه لـBluefy (متصفح مجاني يدعمه)
+       لين يطلع تطبيق ريمدي (المالك ١٤ نوفمبر: «أنا أبي الناس تجربه») */
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const btn = $('#cc-btn');
+    btn.textContent = !link.supported && ios ? 'حمّل Bluefy' : 'اربط';
+    btn.hidden = !link.supported && !ios;
+    if (!link.supported && ios) $('#cc-sub').textContent = 'الآيفون ما يسمح للمتصفح بالبلوتوث. حمّل تطبيق Bluefy المجاني وافتح فيه remedy.sa/xbloom.';
+    else if (!link.supported) $('#cc-sub').textContent = 'هذا المتصفح ما يدعم البلوتوث. افتح الصفحة في Google Chrome.';
     else if (stuck) $('#cc-sub').textContent = 'ما لقيت المكينة. تأكد إنها شغالة وقريبة، واضغط اربط.';
-    else $('#cc-sub').textContent = 'شغّل المكينة وقرّب التابلت منها، وبعدين اضغط اربط.';
+    else $('#cc-sub').textContent = 'شغّل المكينة وقرّب الجهاز منها، وبعدين اضغط اربط.';
   }
 
   // ---------------------------------------------------------------- link events
