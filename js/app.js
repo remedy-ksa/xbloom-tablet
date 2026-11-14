@@ -72,7 +72,7 @@
       pours: p.pours.map((q) => ({ volume_ml: q.volume_ml, temp_c: q.temp_c, pattern: q.pattern, flow: q.flow, pause_s: q.pause_s,
         agitate_before: q.agitate_before, agitate_after: q.agitate_after })) };
   }
-  function pourName(p, i) { return (p.pours[i] && p.pours[i].name) || (i === 0 ? 'التفتيح' : `الصبّة ${i + 1}`); }
+  function pourName(p, i) { return (p.pours[i] && p.pours[i].name) || (i === 0 ? 'الترطيب' : `الصبّة ${i + 1}`); }
 
   // ---------------------------------------------------------------- link + account
   const link = SIM ? new XBLink.SimLink() : new XBLink.BleLink(store);
