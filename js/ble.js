@@ -23,7 +23,7 @@
       super();
       this.state = 'idle';
       this.name = '';
-      this.asm = new XB.Assembler();
+      this.asm = new XB.Assembler((m) => this.log(m));
       this.sleeping = false;
       this.wait = null;  // {code, resolve}
       this.queue = Promise.resolve();
@@ -144,9 +144,11 @@
       super();
       this.store = store;
       this.device = null; this.tx = null; this.rx = null;
-      this.writeMode = store.get('writeMode') || 'auto';  // auto | whole | chunk
-      this.autoTried = false;
-      this.reconnectTimer = null;
+      this.writeMode = store.get('writeMode') || 'auto';  // auto | whole | chunk: only the user's choice is saved
+      this.autoTried = false; this.autoChunk = false;      // auto mode's own finding lives for this session only
+      this.reconnectTimer = null; this.backoff = 4000;
+      this.wired = new WeakSet();                         // devices whose listeners are already attached
+      this.rxListener = null;
       this.supported = typeof navigator !== 'undefined' && !!navigator.bluetooth;
     }
 
@@ -155,7 +157,7 @@
       if (!this.supported || !navigator.bluetooth.getDevices) { this.setState('idle'); return false; }
       try {
         const devs = await navigator.bluetooth.getDevices();
-        const d = devs.find((x) => (x.name || '').toUpperCase().startsWith(XB.NAME_PREFIX)) || devs[0];
+        const d = devs.find((x) => (x.name || '').toUpperCase().startsWith(XB.NAME_PREFIX));   // an xBloom only, never any other allowed device
         if (!d) { this.setState('idle'); return false; }
         this.attach(d);
         this.setState('searching', d.name);
@@ -172,42 +174,64 @@
         optionalServices: OPTIONAL_SERVICES,
       });
       this.attach(d);
-      this.setState('connecting', d.name);
-      await this.connect();
+      this.backoff = 4000;
+      await this.connect();   // on failure connect() has already gone back to searching and set a retry
     }
 
     attach(d) {
-      if (this.device === d) return;
       this.device = d;
+      if (this.wired.has(d)) return;   // same machine again (after forget/restore): its listeners are already there
+      this.wired.add(d);
       d.addEventListener('gattserverdisconnected', () => {
+        if (this.device !== d) return;
         this.log('disconnected');
         this.tx = this.rx = null;
         if (this.wait) { const w = this.wait; this.wait = null; w.resolve(null); }
         this.setState('searching');
+        this.backoff = 4000;
         this.tryReconnect(1500);
       });
       d.addEventListener('advertisementreceived', () => {
-        if (this.state !== 'connected' && this.state !== 'connecting') this.connect().catch(() => {});
+        if (this.device === d && this.state !== 'connected' && this.state !== 'connecting') this.connect().catch(() => {});
       });
     }
 
+    // Reconnect with a growing wait (4 s, 8 s … 60 s); nothing while the page is hidden (the panel calls
+    // tryReconnect(0) again when it comes back). Where Chrome supports it, the machine's own advertising wakes us sooner.
     tryReconnect(delay) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = setTimeout(async () => {
         if (!this.device || this.state === 'connected' || this.state === 'connecting') return;
-        try { await this.connect(); } catch (e) {
-          this.setState('searching');
-          if (this.device.watchAdvertisements && !this.device.watchingAdvertisements) {
-            try { await this.device.watchAdvertisements(); } catch (_) {}
-          }
-          this.tryReconnect(4000);
+        if (typeof document !== 'undefined' && document.hidden) return;
+        if (this.device.watchAdvertisements && !this.device.watchingAdvertisements) {
+          try { await this.device.watchAdvertisements(); } catch (_) {}
         }
+        try { await this.connect(); } catch (e) { /* connect() scheduled the next try */ }
       }, delay);
     }
 
     async connect() {
       const d = this.device;
+      if (!d) throw new Error('ما فيه مكينة مربوطة');
       this.setState('connecting', d.name);
+      try {
+        await this.open(d);
+        this.backoff = 4000;
+        if (d.unwatchAdvertisements && d.watchingAdvertisements) { try { await d.unwatchAdvertisements(); } catch (_) {} }
+      } catch (e) {
+        // never stay on "connecting": back to searching, try again later
+        if (this.device === d && this.state === 'connecting') {
+          this.setState('searching');
+          const wait = this.backoff;
+          this.backoff = Math.min(60000, this.backoff * 2);
+          this.tryReconnect(wait);
+        }
+        throw e;
+      }
+    }
+
+    async open(d) {
+      if (d.gatt.connected && this.tx && this.rx) { this.setState('connected', d.name); return; }   // still up: nothing to redo
       // Android often fails the first GATT connect; try three times
       let server;
       for (let i = 0; ; i++) {
@@ -244,13 +268,17 @@
         this.device = null; this.setState('idle', '');
         throw new Error('ما قدرت أوصل لقناة المكينة (v8: ' + (seen.join(' ') || 'ما فيه خدمات') + '). اضغط «اربط» مرة ثانية واختر المكينة.');
       }
-      rx.addEventListener('characteristicvaluechanged', (e) => {
+      // one listener per connection: drop the last one first, or every notification is read twice
+      if (this.rxHeard && this.rxListener) this.rxHeard.removeEventListener('characteristicvaluechanged', this.rxListener);
+      this.rxListener = (e) => {
         const v = e.target.value;
         this.onNotify(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
-      });
+      };
+      rx.addEventListener('characteristicvaluechanged', this.rxListener);
+      this.rxHeard = rx;
       await rx.startNotifications();
       this.tx = tx; this.rx = rx;
-      this.asm.reset();
+      this.asm.newConnection();
       await sleep(300);  // let the notify stream settle before writing
       this.log('connected to ' + d.name + ' (write ' + this.writeMode + ')');
       this.setState('connected', d.name);
@@ -263,7 +291,7 @@
       this.setState('idle', '');
     }
 
-    setWriteMode(m) { this.writeMode = m; this.autoTried = false; this.store.set('writeMode', m); }
+    setWriteMode(m) { this.writeMode = m; this.autoTried = false; this.autoChunk = false; this.store.set('writeMode', m); }
 
     async rawWrite(bytes) {
       const c = this.tx;
@@ -277,9 +305,8 @@
       if (!chunk || frame.length <= 20) {
         try { return await this.rawWrite(frame); } catch (e) {
           if (this.writeMode !== 'auto' || frame.length <= 20) throw e;
-          this.log('whole write failed, switching to 20-byte chunks');
-          this.autoChunk = true;
-          this.store.set('writeMode', 'chunk'); this.writeMode = 'chunk';
+          this.log('whole write failed, using 20-byte chunks for this session');
+          this.autoChunk = true;   // stays "auto": the user's choice is not overwritten
         }
       }
       for (let i = 0; i < frame.length; i += 20) {
@@ -321,7 +348,11 @@
         this.noise = setInterval(() => this.notifyF(XB.N.WEIGHT, this.weight + (Math.random() - 0.5) * 0.08), 1000);
       }, 900);
     }
-    forget() { clearInterval(this.noise); this.setState('idle', ''); }
+    forget() {
+      for (const k of ['noise', 'brewTimer', 'grindTimer', 'pourTimer']) clearInterval(this[k]);
+      this.loaded = null; this.paused = false;
+      this.setState('idle', '');
+    }
     setWriteMode() {}
 
     frameOut(code, ints) {
@@ -341,7 +372,6 @@
       await sleep(30);
       const code = XB.frameCode(frame);
       this.notify(code, [0, 0, 0, 0]);  // echo, no refusal
-      const F = (cb, ms) => setTimeout(cb, ms);
       switch (code) {
         case XB.CMD.RECIPE_GRIND: case XB.CMD.RECIPE_NO_GRIND: this.loaded = this.simRecipe; break;
         case XB.CMD.EXECUTE: this.startBrew(); break;
@@ -363,7 +393,6 @@
           break;
         }
         case 4507: clearInterval(this.pourTimer); break;
-        default: F(() => {}, 0);
       }
     }
     startBrew() {

@@ -1,6 +1,6 @@
 // Offline cache: the panel opens without internet (recipes are stored on the tablet).
 // VERSION is the one number for a release: scripts/bump.sh writes it here and in every ?v= in index.html.
-const VERSION = 24;
+const VERSION = 25;
 const CACHE = 'xbp-v' + VERSION;
 const FILES = ['./', 'index.html', 'css/app.css', 'js/protocol.js', 'js/cloud.js', 'js/ble.js', 'js/dots.js', 'js/remedy-recipes.js', 'js/app.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/remedy-mark.svg', 'icons/majnoon.png', 'icons/majnoon-drive.png', 'icons/majnoon-write.png', 'icons/majnoon-run.png',

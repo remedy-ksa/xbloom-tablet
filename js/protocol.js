@@ -58,7 +58,7 @@
       if (p.volume_ml < 0 || p.volume_ml > 240) return 'كمية الصبّة من ٠ إلى ٢٤٠ مل';
       if (p.temp_c < 20 || p.temp_c > 98) return 'الحرارة من ٢٠ إلى ٩٨';
       if (p.flow < 3.0 - 1e-9 || p.flow > 3.5 + 1e-9) return 'سرعة الصب من ٣٫٠ إلى ٣٫٥';
-      if (p.pause_s > 59) return 'الانتظار من ٠ إلى ٥٩ ثانية';
+      if (!(p.pause_s >= 0 && p.pause_s <= 59)) return 'الانتظار من ٠ إلى ٥٩ ثانية';
       if (p.pattern < 1 || p.pattern > 3) return 'نمط الصب غير صحيح';
     }
     const w = totalWater(r);
@@ -247,7 +247,14 @@
   }
 
   // Splits FFE2 notifications into whole, checksum-valid frames.
-  const MAX_FRAME = 1024;
+  //  - finds frame starts (58 02) anywhere, so bytes of junk before or between frames don't hide them
+  //  - a frame split over notifications waits at most PENDING_MS, and a new notification that opens a
+  //    frame of its own drops a half frame whose tail never came
+  //  - frames are checked against their CRC. If a connection only ever sends frames that fail it
+  //    (a firmware that computes it differently), it stops checking after LENIENT_AFTER of them and logs it,
+  //    so the panel keeps working instead of going deaf.
+  //  - a notification with no 58 02 frame in it is handed on whole, as before (echo matching reads its code)
+  const MAX_FRAME = 1024, PENDING_MS = 500, LENIENT_AFTER = 3;
   function frameLen(d, i, n) {
     if (n - i < 9 || d[i] !== 0x58 || d[i + 1] !== 0x02) return 0;
     const L = rdU32(d, i + 5);
@@ -257,43 +264,61 @@
     if (f.length < 12) return false;
     return crc16(f, f.length - 2) === (f[f.length - 2] | (f[f.length - 1] << 8));
   }
-  function couldOpen(d) {
-    const n = d.length;
-    const k = Math.min(n, 2);
-    let hdr = true;
-    if (k >= 1 && d[0] !== 0x58) hdr = false;
-    if (k >= 2 && d[1] !== 0x02) hdr = false;
-    if (hdr && n < 9) return true;
-    const L = frameLen(d, 0, n);
+  // could bytes d (from index i) be the start of a frame still arriving?
+  function opensFrame(d, i) {
+    const n = d.length - i;
+    if (n < 1 || d[i] !== 0x58) return false;
+    if (n < 2) return true;
+    if (d[i + 1] !== 0x02) return false;
+    if (n < 9) return true;
+    const L = frameLen(d, i, d.length);
     return !!L && L > n;
   }
   class Assembler {
-    constructor() { this.pending = new Uint8Array(0); }
-    reset() { this.pending = new Uint8Array(0); }
-    feed(data, onFrame) {
-      let buf, emitted = false;
+    constructor(log) { this.log = log || null; this.reset(); this.lenient = false; this.good = 0; this.bad = 0; }
+    reset() { this.pending = new Uint8Array(0); this.pendingAt = 0; }
+    newConnection() { this.reset(); this.lenient = false; this.good = 0; this.bad = 0; }
+    check(f) {
+      if (this.lenient) return true;
+      if (crcOk(f)) { this.good++; return true; }
+      this.bad++;
+      if (this.log) this.log('bad crc, frame ' + (f[3] | (f[4] << 8)) + ' dropped');
+      if (this.good === 0 && this.bad >= LENIENT_AFTER) {
+        this.lenient = true;
+        if (this.log) this.log('every frame fails its crc: crc check off for this connection');
+        return true;
+      }
+      return false;
+    }
+    feed(data, onFrame, now = Date.now()) {
+      let buf = data;
       if (this.pending.length) {
-        const joined = new Uint8Array(this.pending.length + data.length);
-        joined.set(this.pending); joined.set(data, this.pending.length);
-        const L = frameLen(joined, 0, joined.length);
-        if (L && L > joined.length) { this.pending = joined; return; }
-        this.pending = new Uint8Array(0);
-        if (L && crcOk(joined.subarray(0, L))) {
-          onFrame(joined.slice(0, L)); emitted = true; buf = joined.slice(L);
-        } else buf = data.slice();
-      } else buf = data.slice();
-      if (!buf.length) return;
-      let i = 0, count = 0;
+        const old = this.pending, stale = now - this.pendingAt > PENDING_MS;
+        this.reset();
+        if (!stale) {
+          const joined = new Uint8Array(old.length + data.length);
+          joined.set(old); joined.set(data, old.length);
+          const L = frameLen(joined, 0, joined.length);
+          const newFrame = frameLen(data, 0, data.length) > 0;   // this notification opens a frame of its own
+          if (L && L <= joined.length && crcOk(joined.subarray(0, L))) buf = joined;  // the tail arrived
+          else if (newFrame) buf = data;                              // tail lost: drop the half frame
+          else if (opensFrame(joined, 0)) { this.pending = joined; this.pendingAt = now; return; }
+          else buf = joined;
+        }
+      }
+      let i = 0, found = false;
       while (i < buf.length) {
+        if (buf[i] !== 0x58) { i++; continue; }
+        if (opensFrame(buf, i)) {                 // a frame that continues in the next notification
+          this.pending = buf.slice(i); this.pendingAt = now; found = true; break;
+        }
         const L = frameLen(buf, i, buf.length);
-        if (!L || L > buf.length - i) break;
-        onFrame(buf.slice(i, i + L)); count++; i += L;
+        if (!L) { i++; continue; }
+        found = true;
+        const f = buf.slice(i, i + L);
+        if (this.check(f)) { onFrame(f); i += L; } else i++;   // bad crc: look for the next start inside it
       }
-      if (count === 0 && !emitted && !couldOpen(buf)) { onFrame(buf); return; }
-      if (i < buf.length) {
-        const rest = buf.slice(i);
-        if (couldOpen(rest)) this.pending = rest;
-      }
+      if (!found && buf.length) onFrame(buf.slice());
     }
   }
 
@@ -303,7 +328,7 @@
     SERVICE_HINTS, UUID_TX, UUID_RX, NAME_PREFIX, CMD, N, PAT, UNIT, MAX_POURS,
     floatBits, bitsFloat, pyRound, totalWater, doseRange, validate, crc16, buildFrame,
     encodeRecipeBlob, buildLoadFrames, F, patternByte, tempDisplayToWire, frameCode,
-    parseEvent, refusalCode, refusalReason, activityName, faultName, Assembler, toHex,
+    parseEvent, refusalCode, refusalReason, activityName, faultName, Assembler, crcOk, toHex,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.XB = api;
