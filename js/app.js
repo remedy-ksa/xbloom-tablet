@@ -1207,7 +1207,15 @@
   if (!inApp && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWanted = true; });
-    navigator.serviceWorker.register('sw.js').then((r) => setInterval(() => r.update().catch(() => {}), 60 * 60000)).catch(() => {});
+    /* تحديث تلقائي (المالك ١٥ نوفمبر: «التابلت لازم أسكر الصفحة وأفتحها»): نشيّك على نسخة جديدة كل دقيقتين
+       وكل ما رجعت الشاشة، وأول ما تتركّب تعيد الصفحة نفسها لما تكون فاضية (مو وقت تحضير ولا كتابة) */
+    navigator.serviceWorker.register('sw.js').then((r) => {
+      const check = () => r.update().catch(() => {});
+      setInterval(check, 2 * 60000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+      addEventListener('focus', check);
+      addEventListener('online', check);
+    }).catch(() => {});
   }
   setTimeout(backupNudge, 8000);
   if (new URLSearchParams(location.search).has('debug')) window.__panel = { S, link, lib: () => lib };  // console debugging, ?debug=1 only
