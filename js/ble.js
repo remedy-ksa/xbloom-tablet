@@ -220,22 +220,29 @@
       let tx = null, rx = null;
       let services = [];
       try { services = await server.getPrimaryServices(); } catch (e) { this.log('services: ' + e.message); }
+      if (!services.some((s) => s.uuid === XB_SERVICE)) {
+        try { services.unshift(await server.getPrimaryService(XB_SERVICE)); } catch (e) { this.log('e0ff: ' + e.message); }
+      }
+      // match FFE1 / FFE2 by their short id, whatever base UUID the firmware uses
+      const short = (u) => u.slice(4, 8).toLowerCase();
+      const seen = [];
       for (const s of services) {
         try {
           for (const c of await s.getCharacteristics()) {
-            if (c.uuid === XB.UUID_TX && !tx) tx = c;
-            if (c.uuid === XB.UUID_RX && !rx) rx = c;
+            seen.push(short(s.uuid) + '/' + short(c.uuid));
+            if (short(c.uuid) === 'ffe1' && !tx) tx = c;
+            if (short(c.uuid) === 'ffe2' && !rx) rx = c;
           }
-        } catch (_) {}
+        } catch (e) { seen.push(short(s.uuid) + '/!' + e.name); }
       }
-      this.log('services: ' + services.map((s) => s.uuid).join(', '));
+      this.log('services: ' + (seen.join(' ') || 'none'));
       if (!tx || !rx) {
         // Usually an old permission from before the service was on the list: drop it so the next tap asks again.
         d.gatt.disconnect();
         clearTimeout(this.reconnectTimer);
         if (d.forget) d.forget().catch(() => {});
         this.device = null; this.setState('idle', '');
-        throw new Error('ما قدرت أوصل لقناة المكينة. اضغط «اربط» مرة ثانية واختر المكينة.');
+        throw new Error('ما قدرت أوصل لقناة المكينة (v8: ' + (seen.join(' ') || 'ما فيه خدمات') + '). اضغط «اربط» مرة ثانية واختر المكينة.');
       }
       rx.addEventListener('characteristicvaluechanged', (e) => {
         const v = e.target.value;
