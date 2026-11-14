@@ -175,8 +175,8 @@
   }
 
   // ---- brewing scene: Remedy-drawn dripper and carafe, Majnoon keeping watch -------------
-  // view = {progress 0..1, pouring, grinding, paused}
-  function brew(canvas) {
+  // view = {progress 0..1, pouring, grinding, paused}; opts.full draws over the whole canvas
+  function brew(canvas, opts = {}) {
     const f = new Field(canvas);
     f.view = { progress: 0, pouring: false, grinding: false, paused: false };
     let level = 0;
@@ -188,8 +188,8 @@
       F.clear();
       level += (v.progress - level) * 0.04;
       // the drawing lives on the right half (info is on the left); in portrait, the top half
-      const portrait = h > w;
-      const ax = portrait ? 0 : w * 0.5, aw = portrait ? w : w * 0.5, ah = portrait ? h * 0.55 : h;
+      const portrait = h > w, full = !!opts.full;
+      const ax = full || portrait ? 0 : w * 0.5, aw = full || portrait ? w : w * 0.5, ah = full ? h : portrait ? h * 0.55 : h;
       const u = Math.min(aw, ah) / 100;
       const sx = ax + aw * 0.3;                  // dripper / carafe centre line
       const top = ah * 0.17;

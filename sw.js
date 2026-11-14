@@ -1,5 +1,5 @@
 // Offline cache: the panel opens without internet (recipes are stored on the tablet).
-const CACHE = 'xbp-v13';
+const CACHE = 'xbp-v14';
 const FILES = ['./', 'index.html', 'css/app.css', 'js/protocol.js', 'js/cloud.js', 'js/ble.js', 'js/dots.js', 'js/remedy-recipes.js', 'js/app.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/remedy-mark.svg', 'icons/majnoon.png', 'icons/majnoon-drive.png', 'icons/majnoon-write.png', 'icons/majnoon-run.png', 'icons/majnoon-sleep.png', 'icons/majnoon-happy.png', 'icons/majnoon-glasses.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });

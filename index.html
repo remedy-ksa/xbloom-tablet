@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=13">
+<link rel="stylesheet" href="css/app.css?v=14">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -64,7 +64,7 @@
               <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-grind"/></svg></span><span class="mod-name">الطاحونة</span><span class="mod-en">Grinder</span>
             </button>
             <button class="module brewer" data-open="brewer">
-              <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-dose"/></svg></span><span class="mod-name">الصبّاب</span><span class="mod-en">Brewer</span>
+              <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-dose"/></svg></span><span class="mod-name">الصب</span><span class="mod-en">Pour</span>
             </button>
             <button class="module scale" data-open="scale">
               <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-clock"/></svg></span><span class="mod-name">الميزان</span><span class="mod-en">Scale</span>
@@ -196,7 +196,7 @@
 
   <!-- ============ BREWER ============ -->
   <section class="screen module-screen brewer" id="scr-brewer">
-    <div class="mod-head"><button class="icon-btn back" data-mod-back="brewer" aria-label="رجوع"><svg aria-hidden="true"><use href="#i-back"/></svg></button><span class="mod-ic"><svg aria-hidden="true"><use href="#i-dose"/></svg></span><h2>الصبّاب</h2>
+    <div class="mod-head"><button class="icon-btn back" data-mod-back="brewer" aria-label="رجوع"><svg aria-hidden="true"><use href="#i-back"/></svg></button><span class="mod-ic"><svg aria-hidden="true"><use href="#i-dose"/></svg></span><h2>الصب</h2>
       <div class="readout num"><span id="br-weight">0.0g</span> · <span id="br-timer">00:00</span></div></div>
     <div class="mod-body">
       <div class="mod-cards three">
@@ -210,6 +210,7 @@
           <button data-pat="3"><i class="pat pat-3"></i>دائري</button>
           <button data-pat="2"><i class="pat pat-2"></i>حلزوني</button>
         </div>
+        <canvas class="mod-art" id="br-art" aria-hidden="true"></canvas>
         <button class="act-btn" id="br-play"><i class="act-fill"></i><svg class="ic" aria-hidden="true"><use href="#i-play"/></svg><span>صبّ</span></button>
       </div>
     </div>
@@ -332,11 +333,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=13"></script>
-<script src="js/cloud.js?v=13"></script>
-<script src="js/ble.js?v=13"></script>
-<script src="js/dots.js?v=13"></script>
-<script src="js/remedy-recipes.js?v=13"></script>
-<script src="js/app.js?v=13"></script>
+<script src="js/protocol.js?v=14"></script>
+<script src="js/cloud.js?v=14"></script>
+<script src="js/ble.js?v=14"></script>
+<script src="js/dots.js?v=14"></script>
+<script src="js/remedy-recipes.js?v=14"></script>
+<script src="js/app.js?v=14"></script>
 </body>
 </html>
