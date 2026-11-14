@@ -383,7 +383,7 @@
     if (S.active === S.cur) {
       if (S.flow === 'brewing') return cmdResult('pause', await link.pause());
       if (S.flow === 'paused') return cmdResult('resume', await link.resume());
-      if (S.flow === 'loaded') { openModal('#md-cup'); return; }
+      if (S.flow === 'loaded') { startLoaded(); return; }
       return;
     }
     if (S.flow !== 'idle') return toast('فيه وصفة ثانية على المكينة');
@@ -416,13 +416,15 @@
     await link.quitRecipe();
   }
   $('#cup-cancel').addEventListener('click', () => quitLoaded());
-  $('#cup-go').addEventListener('click', async () => {
+  /* «ابدأ» يبدأ التحضير على طول (المالك ١٤ نوفمبر): بلا نافذة «حط الكوب وبعدين ابدأ التحضير» */
+  async function startLoaded() {
     closeModal('#md-cup');
     const p = find(S.active);
     if (p) newPending(p);
     S.flow = 'starting'; refreshDetail();
     cmdResult('execute', await link.execute());  // the only path that starts a recipe brew
-  });
+  }
+  $('#cup-go').addEventListener('click', startLoaded);
 
   const LOADED_MAX_MS = 2 * 60000;   // a loaded recipe nobody starts is taken off the machine
   function cmdResult(type, err) {
@@ -436,7 +438,9 @@
     }
     if (type === 'load') {
       S.flow = 'loaded'; S.loadedAt = Date.now();
-      openModal('#md-cup');                  // from whatever screen the person is on now
+      refreshDetail(); renderStatus();
+      startLoaded();                         // انحملت الوصفة: نبدأ على طول
+      return;
     } else if (type === 'execute') {
       if (S.flow !== 'brewing') { S.flow = 'brewing'; S.water = 0; S.brewStart = Date.now(); brewStarted(); }
     } else if (type === 'stop') { brewEnded(); endPending(); }
