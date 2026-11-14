@@ -93,9 +93,23 @@
     $('#cf-yes').onclick = () => { $('#md-confirm').hidden = true; action(); };
     $('#cf-no').onclick = () => ($('#md-confirm').hidden = true);
   }
+  // the three machine drawings in the home tiles: drawn only while the home page is on screen
+  let tileFx = [];
+  function tilesOn(on) {
+    if (!on) { tileFx.forEach((f) => f.stop()); tileFx = []; return; }
+    if (tileFx.length) return;
+    const o = { bg: 'none', fps: 10, mascot: false, tile: true, full: true, cx: 0.5 };
+    tileFx = [
+      Dots.grinder($('#tile-grinder'), () => ({ grinding: false }), Object.assign({ level: 0.55 }, o)),
+      Dots.brew($('#tile-brewer'), Object.assign({ level: 0.55 }, o, { zoom: 1.22 })),
+      Dots.scale($('#tile-scale'), () => 180, Object.assign({}, o, { cx: 0.52 })),
+    ];
+  }
+  const homeVisible = () => S.screen === 'home' && S.tab === 'home' && $('#ov-clock').hidden;
   function show(screen) {
     $$('.screen').forEach((s) => s.classList.toggle('active', s.id === 'scr-' + screen));
     S.screen = screen;
+    tilesOn(homeVisible());
     updateConnectCard();
   }
   // floating bar: the notch and the yellow circle spring to the chosen tab and hop a little
@@ -133,6 +147,7 @@
     S.tab = tab;
     $$('.tb-row button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
     requestAnimationFrame(() => moveTabDot(jump));
+    tilesOn(homeVisible());
     $$('.page').forEach((p) => p.classList.toggle('active', p.id === 'page-' + tab));
     if (tab === 'recipes') renderRecipes();
     if (tab === 'settings') renderSettings();
@@ -924,10 +939,11 @@
   function showClock() {
     if (!$('#ov-clock').hidden) return;
     $('#ov-clock').hidden = false;
+    tilesOn(false);
     clockFx = Dots.clock($('#clock-canvas'));
     tickIdleClock();
   }
-  function hideClock() { if ($('#ov-clock').hidden) return; $('#ov-clock').hidden = true; if (clockFx) clockFx.stop(); }
+  function hideClock() { if ($('#ov-clock').hidden) return; $('#ov-clock').hidden = true; if (clockFx) clockFx.stop(); tilesOn(homeVisible()); }
   function tickIdleClock() {
     if (!clockFx) return;
     const d = new Date();

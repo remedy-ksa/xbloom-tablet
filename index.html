@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=21">
+<link rel="stylesheet" href="css/app.css?v=22">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -70,13 +70,13 @@
           </div>
           <div class="modules">
             <button class="module grinder" data-open="grinder">
-              <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-grinder"/></svg></span><span class="mod-name">الطاحونة</span><span class="mod-en">Grinder</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-grinder" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-grinder"/></svg></span><span class="mod-name">الطاحونة</span><span class="mod-en">Grinder</span>
             </button>
             <button class="module brewer" data-open="brewer">
-              <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-kettle"/></svg></span><span class="mod-name">التقطير</span><span class="mod-en">Drip</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-brewer" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-kettle"/></svg></span><span class="mod-name">التقطير</span><span class="mod-en">Drip</span>
             </button>
             <button class="module scale" data-open="scale">
-              <span class="mod-dots"></span><span class="mod-ic"><svg aria-hidden="true"><use href="#i-scale"/></svg></span><span class="mod-name">الميزان</span><span class="mod-en">Scale</span>
+              <span class="mod-dots"></span><canvas class="tile-art" id="tile-scale" aria-hidden="true"></canvas><span class="mod-ic"><svg aria-hidden="true"><use href="#i-scale"/></svg></span><span class="mod-name">الميزان</span><span class="mod-en">Scale</span>
             </button>
           </div>
         </div>
@@ -358,11 +358,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=21"></script>
-<script src="js/cloud.js?v=21"></script>
-<script src="js/ble.js?v=21"></script>
-<script src="js/dots.js?v=21"></script>
-<script src="js/remedy-recipes.js?v=21"></script>
-<script src="js/app.js?v=21"></script>
+<script src="js/protocol.js?v=22"></script>
+<script src="js/cloud.js?v=22"></script>
+<script src="js/ble.js?v=22"></script>
+<script src="js/dots.js?v=22"></script>
+<script src="js/remedy-recipes.js?v=22"></script>
+<script src="js/app.js?v=22"></script>
 </body>
 </html>

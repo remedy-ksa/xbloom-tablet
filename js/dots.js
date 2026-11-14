@@ -5,8 +5,9 @@
   const GROUND = '#131A14';
 
   class Field {
-    constructor(canvas) {
+    constructor(canvas, opts = {}) {
       this.c = canvas; this.ctx = canvas.getContext('2d'); this.raf = 0; this.t0 = 0;
+      this.bg = opts.bg || GROUND; this.fps = opts.fps || 0;
     }
     size() {
       const dpr = window.devicePixelRatio || 1, r = this.c.getBoundingClientRect();
@@ -18,11 +19,19 @@
     start(draw) {
       this.stop();
       this.t0 = performance.now();
-      const loop = (now) => { draw(this, now - this.t0); this.raf = requestAnimationFrame(loop); };
+      let last = -1e9;
+      const loop = (now) => {
+        if (!this.fps || now - last >= 1000 / this.fps) { last = now; draw(this, now - this.t0); }
+        this.raf = requestAnimationFrame(loop);
+      };
       this.raf = requestAnimationFrame(loop);
     }
     stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
-    clear() { const { w, h } = this.size(); this.ctx.fillStyle = GROUND; this.ctx.fillRect(0, 0, w, h); }
+    clear() {
+      const { w, h } = this.size();
+      if (this.bg === 'none') { this.ctx.clearRect(0, 0, w, h); return; }
+      this.ctx.fillStyle = this.bg; this.ctx.fillRect(0, 0, w, h);
+    }
   }
 
   // ---- idle clock ----------------------------------------------------------------
@@ -177,9 +186,10 @@
   // ---- brewing scene: Remedy-drawn dripper and carafe, Majnoon keeping watch -------------
   // view = {progress 0..1, pouring, grinding, paused}; opts.full draws over the whole canvas
   function brew(canvas, opts = {}) {
-    const f = new Field(canvas);
+    const f = new Field(canvas, opts);
     f.view = { progress: 0, pouring: false, grinding: false, paused: false };
-    let level = 0;
+    let level = opts.level || 0;
+    if (opts.level) f.view.progress = opts.level;
     const grounds = [];   // falling coffee bits while grinding
     const drops = [];     // drops in the stream
     f.start((F, t) => {
@@ -190,8 +200,8 @@
       // the drawing lives on the right half (info is on the left); in portrait, the top half
       const portrait = h > w, full = !!opts.full;
       const ax = full || portrait ? 0 : w * 0.5, aw = full || portrait ? w : w * 0.5, ah = full ? h : portrait ? h * 0.55 : h;
-      const u = Math.min(aw, ah) / 100;
-      const sx = ax + aw * 0.3;                  // dripper / carafe centre line
+      const u = Math.min(aw, ah) / 100 * (opts.zoom || 1);
+      const sx = ax + aw * (opts.cx || 0.3);     // dripper / carafe centre line
       const top = ah * 0.17;
       const live = !v.paused;
 
@@ -319,7 +329,7 @@
 
       // Majnoon next to the carafe: running while it grinds, writing notes while it pours, asleep when paused
       const mx = ax + aw * 0.8, foot2 = cBot + 1.5 * u;
-      if (v.paused) {
+      if (opts.mascot === false) { /* home tile: no Majnoon */ } else if (v.paused) {
         majnoon(ctx, POSE.sleep, mx - 2 * u, foot2, 26 * u, 0);
         ctx.fillStyle = 'rgba(245,248,242,0.7)'; ctx.textAlign = 'center'; ctx.direction = 'ltr';
         for (let k = 0; k < 3; k++) {
@@ -388,16 +398,16 @@
 
   // ---- grinder screen: Remedy-drawn grinder, grounds falling into the cup while it grinds ----
   // get() returns {grinding}
-  function grinder(canvas, get) {
-    const f = new Field(canvas);
+  function grinder(canvas, get, opts = {}) {
+    const f = new Field(canvas, opts);
     const grounds = [];
-    let level = 0.12, spin = 0;
+    let level = opts.level || 0.12, spin = 0;
     f.start((F, t) => {
       const { w, h } = F.size();
       const ctx = F.ctx; F.clear();
       const on = !!(get() || {}).grinding;
-      const u = Math.min(w / 1.25, h) / 100;
-      const cx0 = w * 0.36, y0 = h / 2 - 46 * u;
+      const u = opts.tile ? Math.min(w / 52, h / 100) * 0.86 : Math.min(w / 1.25, h) / 100;
+      const cx0 = w * (opts.cx || 0.36), y0 = h / 2 - 46 * u;
       const jit = on ? Math.sin(t / 23) * 0.35 * u : 0, cx = cx0 + jit;
       if (on) { spin += 0.35; level = Math.min(0.92, level + 0.0016); }
       const baseY = y0 + 86 * u;
@@ -475,6 +485,7 @@
       }
       // Majnoon: running while it grinds, otherwise watching
       const mx = w * 0.8, foot = baseY + 6 * u;
+      if (opts.mascot === false) return;
       if (on) majnoon(ctx, POSE.run, mx, foot, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
       else majnoon(ctx, POSE.glasses, mx, foot, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
     });
@@ -483,16 +494,16 @@
 
   // ---- scale screen: Remedy-drawn kitchen scale, a mug on it once there is weight ----
   // get() returns the weight in grams
-  function scale(canvas, get) {
-    const f = new Field(canvas);
-    let shown = 0;
+  function scale(canvas, get, opts = {}) {
+    const f = new Field(canvas, opts);
+    let shown = opts.tile ? +get() || 0 : 0;
     f.start((F, t) => {
       const { w, h } = F.size();
       const ctx = F.ctx; F.clear();
       const g = +get() || 0;
       shown += (g - shown) * 0.12;
-      const u = Math.min(w / 1.25, h) / 100;
-      const cx = w * 0.38, baseTop = h / 2 + 16 * u;
+      const u = opts.tile ? Math.min(w / 92, h / 70) : Math.min(w / 1.25, h) / 100;
+      const cx = w * (opts.cx || 0.38), baseTop = h / 2 + 16 * u;
       const press = Math.min(1.2, Math.max(0, shown) / 250) * u;
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(cx, baseTop + 15 * u, 36 * u, 2.6 * u, 0, 0, Math.PI * 2); ctx.fill();
@@ -541,7 +552,7 @@
         }
         ctx.restore();
       }
-      majnoon(ctx, POSE.glasses, w * 0.82, baseTop + 14.5 * u, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
+      if (opts.mascot !== false) majnoon(ctx, POSE.glasses, w * 0.82, baseTop + 14.5 * u, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
     });
     return f;
   }
