@@ -147,6 +147,19 @@
     $('#today-n').textContent = n;
     $('#today-w').textContent = n === 1 ? 'كوب' : n === 2 ? 'كوبين' : n >= 3 && n <= 10 ? 'أكواب' : 'كوب';
   }
+  // A cup counts once, whichever way the brew ends: the machine's ENJOY, its Done/Home activity,
+  // a stop after most of the water, a manual pour of 100 ml or more, or a brew started on the machine itself.
+  let lastCup = 0;
+  function countCup(why) {
+    if (Date.now() - lastCup < 20000) return;
+    lastCup = Date.now();
+    renderToday();                      // rolls the day over first
+    today.n += 1;
+    if (!SIM) { store.set('today', today); counter.cups += 1; saveCounter(); }
+    link.log && link.log('cup counted (' + why + '), today ' + today.n);
+    renderToday();
+    if (S.screen === 'settings' || S.tab === 'settings') renderCounter();
+  }
   function renderHome() {
     renderToday();
     const row = $('#fav-row');
@@ -355,7 +368,12 @@
   });
   $('#bw-stop').addEventListener('click', () => confirmBox('توقف التحضير؟', 'المكينة بتوقف الوصفة الحين.', 'وقّف', async () => cmdResult('stop', await link.stop())));
 
-  function brewEnded() {
+  function brewEnded(why) {
+    if (S.brewStart && S.active) {
+      const p = find(S.active), total = p ? totalWater(p) : 0;
+      const secs = (Date.now() - S.brewStart) / 1000;
+      if (why === 'done' || (total && S.water >= total * 0.6) || secs >= 90) countCup('recipe ' + (typeof why === 'string' ? why : 'end'));
+    }
     hideBrew();
     S.flow = 'idle'; S.active = null; S.brewStart = 0; S.pourIdx = -1;
     refreshDetail(); renderStatus();
@@ -452,6 +470,8 @@
   $$('#br-pattern button').forEach((b) => b.addEventListener('click', () => setPattern(+b.dataset.pat, true)));
   setPattern(mod.bPat, false);
   function setPouring(on) {
+    const poured = S.pouring && !on ? Math.min(mod.bVol, (Date.now() - S.pourStart) / 1000 * mod.bFlow) : 0;
+    if (poured >= 100) countCup('pour ' + Math.round(poured) + ' ml');
     S.pouring = on; if (on) { S.pourStart = Date.now(); if (artFx && artFx.view) artFx.view.progress = 0; }
     actState($('#br-play'), on, 'ابدأ', 'وقّف');
   }
@@ -801,17 +821,21 @@
       if (!S.brewStart) S.brewStart = Date.now();
       brewStarted();
     }
-    if (a === 1 && S.active && (S.flow === 'brewing' || S.flow === 'paused')) brewEnded();
+    if ((a === 1 || a === 36) && S.active && (S.flow === 'brewing' || S.flow === 'paused')) brewEnded(a === 36 ? 'done' : 'home');
+    // brews started on the machine or from an xPod: seen as brewing activity with no recipe from here
+    const onModule = ['grinder', 'brewer', 'scale'].includes(S.screen) || S.pouring || S.grinding;
+    if ((a === 30 || a === 35 || a === 16) && !S.active && !onModule && !S.extStart) S.extStart = Date.now();
+    if ((a === 1 || a === 36) && S.extStart) { if (a === 36 || Date.now() - S.extStart > 40000) countCup('machine'); S.extStart = 0; }
     refreshDetail(); renderStatus();
   });
   link.on('done', () => {
-    if (!SIM) { counter.cups += 1; saveCounter(); renderToday(); today.n += 1; store.set('today', today); renderToday(); }
+    if (!S.brewStart) countCup('enjoy');   // a brew this panel did not start
     const p = find(S.active);
     const ml = S.water > 0 ? S.water : p ? totalWater(p) : 0;
     const ms = S.brewStart ? Date.now() - S.brewStart : 0;
     showFinish(p ? p.name : 'قهوتك', S.weight, ml, ms);
     wake();
-    brewEnded();
+    brewEnded('done');
   });
   link.on('abandoned', brewEnded);
   link.on('paused', () => { if (S.flow === 'brewing') S.flow = 'paused'; refreshDetail(); });
