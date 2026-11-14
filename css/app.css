@@ -25,7 +25,9 @@ svg { width: 1em; height: 1em; flex: none; }
 .en { font-family: 'Concert One', var(--font); font-weight: 400; unicode-bidi: isolate; }
 .muted { color: var(--muted); }
 [hidden] { display: none !important; }
-#app { position: fixed; inset: 0; }
+/* الآيفون (تطبيق ريمدي، viewport-fit=cover): المحتوى يبدأ تحت شريط الساعة والبطارية، والأسفل فوق شريط الرجوع
+   (المالك ١٥ نوفمبر: «الازرار مخفية فوق») */
+#app { position: fixed; inset: 0; top: env(safe-area-inset-top, 0px); left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
 
 /* ---------- screens ---------- */
 .screen { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg); animation: fade .32s var(--ease); }
