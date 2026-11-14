@@ -94,7 +94,7 @@ svg { width: 1em; height: 1em; flex: none; }
 .board b { font-family: 'Concert One', sans-serif; font-weight: 400; font-size: 3.2em; direction: ltr; color: var(--yellow); }
 /* «اليوم شربت ٠ كوب»: الرقم والكلمة سطر واحد، بلا «=» (المالك ١٥ نوفمبر) */
 .board-n { display: flex; align-items: center; justify-content: center; gap: .3em; line-height: 1.1; }
-.board i { font-style: normal; font-size: 1.35em; font-weight: 800; opacity: .9; }
+.board i { font-style: normal; font-size: 2.3em; font-weight: 800; line-height: 1; opacity: .9; } /* بحجم الرقم (المالك ١٥ نوفمبر) */
 .doc-man { position: absolute; left: .3em; bottom: .25em; height: 8em; width: auto; pointer-events: none; filter: drop-shadow(0 6px 8px #0007); }
 @media (max-width: 700px) { .doc { display: none; } .fav-wrap .fav-row { grid-column: 1 / -1; } }
 .fav-empty { color: var(--muted); padding: 2em 0; }
