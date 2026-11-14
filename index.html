@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Concert+One&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=19">
+<link rel="stylesheet" href="css/app.css?v=20">
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
@@ -124,6 +124,14 @@
               <button class="btn small" id="btn-sync">زامن الحين</button>
               <button class="btn small" id="btn-login">سجّل دخول</button>
               <button class="btn small ghost" id="btn-logout">اطلع</button></span></div>
+          </div>
+          <div class="set-group">
+            <div class="set-title">وصفاتي على هذا الجهاز</div>
+            <div class="set-row"><span>الحفظ</span><span class="val" id="st-persist">…</span></div>
+            <div class="set-row"><span>نسخة احتياطية <small class="muted" id="st-mine"></small></span>
+              <span class="val"><button class="btn small" id="btn-export">نزّل نسخة</button>
+              <button class="btn small ghost" id="btn-import">رجّع من ملف</button></span></div>
+            <input type="file" id="file-import" accept=".json,application/json" hidden>
           </div>
           <div class="set-group">
             <div class="set-title">الشاشة</div>
@@ -343,11 +351,11 @@
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<script src="js/protocol.js?v=19"></script>
-<script src="js/cloud.js?v=19"></script>
-<script src="js/ble.js?v=19"></script>
-<script src="js/dots.js?v=19"></script>
-<script src="js/remedy-recipes.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/protocol.js?v=20"></script>
+<script src="js/cloud.js?v=20"></script>
+<script src="js/ble.js?v=20"></script>
+<script src="js/dots.js?v=20"></script>
+<script src="js/remedy-recipes.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 </body>
 </html>

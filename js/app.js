@@ -725,8 +725,63 @@
     Object.assign(counter, { cups: c, days: d, at: Date.now() }); saveCounter(); renderCounter();
   });
 
+  // ---------------------------------------------------------------- recipes kept on this device
+  // Recipes live in this browser's storage. Ask Chrome to keep it (so Android does not clear it
+  // when space runs low), and offer a backup file that can be restored here or on another device.
+  let persisted = null;
+  async function askPersist() {
+    try {
+      if (!navigator.storage || !navigator.storage.persist) { persisted = false; return; }
+      persisted = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+    } catch (e) { persisted = false; }
+    if (S.tab === 'settings') renderSettings();
+  }
+  askPersist();
+  const mine = () => lib.filter((p) => !BUILTIN(p));
+  function renderBackup() {
+    $('#st-persist').textContent = persisted == null ? '…' : persisted ? 'محمي، ما ينمسح لحاله' : 'عادي، يضيع لو انمسحت بيانات المتصفح';
+    const n = mine().length;
+    $('#st-mine').textContent = n ? `· ${n} وصفة` : '· ما عندك وصفات خاصة';
+  }
+  $('#btn-export').addEventListener('click', () => {
+    const data = {
+      app: 'remedy-xbloom-panel', v: 1, at: new Date().toISOString(),
+      recipes: mine(),
+      favorites: lib.filter((p) => BUILTIN(p) && p.favorite).map((p) => p.uid),
+      counter, today, prefs: { noGrind: !!prefs.noGrind },
+    };
+    const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+    a.download = `remedy-xbloom-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('نزّلت النسخة في التنزيلات');
+  });
+  $('#btn-import').addEventListener('click', () => $('#file-import').click());
+  $('#file-import').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); } catch (err) { return toast('الملف مو نسخة من اللوحة'); }
+    if (!data || data.app !== 'remedy-xbloom-panel' || !Array.isArray(data.recipes)) return toast('الملف مو نسخة من اللوحة');
+    const ok = data.recipes.filter((p) => p && p.uid && p.name && Array.isArray(p.pours) && p.pours.length && !BUILTIN(p));
+    let added = 0, updated = 0;
+    for (const p of ok) {
+      const i = lib.findIndex((q) => q.uid === p.uid);
+      if (i >= 0) { lib[i] = p; updated++; } else { lib.unshift(p); added++; }
+    }
+    const fav = new Set(data.favorites || []);
+    lib.forEach((p) => { if (BUILTIN(p) && fav.has(p.uid)) p.favorite = true; });
+    if (data.counter && data.counter.cups > counter.cups) { Object.assign(counter, data.counter); saveCounter(); }
+    saveLib(); renderSettings(); renderHome();
+    toast(`رجّعت ${added} وصفة جديدة${updated ? ` وحدّثت ${updated}` : ''}`);
+  });
+
   function renderSettings() {
     renderCounter();
+    renderBackup();
     $('#st-machine').textContent = link.connected ? link.name : { connecting: 'يتصل…', searching: 'يبحث عن ' + (link.name || 'المكينة') + '…' }[link.state] || 'غير مربوطة';
     $('#btn-forget').hidden = !link.name;
     $('#st-acct').textContent = acct.signedIn ? acct.email : 'غير مسجّل';
