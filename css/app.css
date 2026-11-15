@@ -36,6 +36,9 @@ svg { width: 1em; height: 1em; flex: none; }
 
 /* ---------- status bar ---------- */
 .statusbar { display: flex; align-items: center; gap: .8em; padding: calc(var(--m) * .6) var(--m) 0; height: 3.8em; }
+.sb-back { display: flex; align-items: center; gap: .3em; background: var(--s1); color: var(--text); border-radius: 999px; padding: .4em .9em .4em 1em; text-decoration: none; flex: none; }
+.sb-back[hidden] { display: none; }
+.sb-back:active { scale: .97; }
 .sb-mark { width: 2.3em; height: 2.3em; border-radius: 9px; flex: none; display: block; }
 .sb-machine { display: flex; align-items: center; gap: .55em; background: var(--s1); border-radius: 999px; padding: .35em .95em; }
 .sb-name { color: var(--text); }

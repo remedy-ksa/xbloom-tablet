@@ -1199,6 +1199,18 @@
   if (acct.signedIn && !acct.expired) setTimeout(() => sync(false), 1500);
   /* داخل تطبيق ريمدي (Capacitor) بلا service worker: كان يقدّم نسخة قديمة من الكاش (اللوحة ٤٢ والمنشور ٤٦، ١٥ نوفمبر).
      والمسجّل من قبل ينشال مع كاشه، فالجوال ياخذ الحي على طول */
+  // زر «الموقع»: يطلع لما اللوحة انفتحت من remedy.sa (المتصفح أو تطبيق ريمدي)، ومو في تابلت المحل المثبّت.
+  (() => {
+    const b = document.getElementById('sb-back'); if (!b) return;
+    let fromSite = false;
+    try { fromSite = document.referrer && new URL(document.referrer).origin === location.origin && !new URL(document.referrer).pathname.startsWith('/xbloom'); } catch (_) {}
+    try { if (fromSite) sessionStorage.setItem('xb-from-site', '1'); else fromSite = sessionStorage.getItem('xb-from-site') === '1'; } catch (_) {}
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const onSite = location.hostname === 'remedy.sa' || location.hostname === 'www.remedy.sa';
+    if (!fromSite && !(onSite && !standalone && !window.Capacitor)) return;
+    b.hidden = false;
+    b.addEventListener('click', (e) => { if (fromSite && history.length > 1) { e.preventDefault(); history.back(); } });
+  })();
   const inApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (inApp && 'serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
