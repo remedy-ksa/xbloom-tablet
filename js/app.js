@@ -314,6 +314,8 @@
     /* الثلج سطر لحاله: «حط ١٢٠ جم ثلج في الكوب» تعليمة للزبون، مو رقم وسط الأرقام */
     const ice = $('#d-ice'); ice.hidden = !p.ice_g; if (p.ice_g) ice.innerHTML = `حط <span class="num">${Number(p.ice_g)}g</span> ثلج في الكوب`;
     $('#d-fav use').setAttribute('href', p.favorite ? '#i-heart-fill' : '#i-heart');
+    $('#d-dawam').hidden = !prefs.dawamiKey;
+    $('#d-dawam').classList.toggle('on', prefs.dawamiRecipe === p.uid);
     const box = $('#d-box');
     if (p.crop && p.kind === 'remedy') { box.src = `icons/boxes/${p.crop}.webp`; box.alt = 'علبة ' + p.name.split(' · ')[0]; box.hidden = false; }
     else { box.hidden = true; box.removeAttribute('src'); }
@@ -410,6 +412,12 @@
     $('#d-fav use').setAttribute('href', p.favorite ? '#i-heart-fill' : '#i-heart');
   });
   $('#d-edit').addEventListener('click', () => openEditor(S.cur));
+  $('#d-dawam').addEventListener('click', () => {
+    const p = find(S.cur); if (!p) return;
+    prefs.dawamiRecipe = prefs.dawamiRecipe === p.uid ? null : p.uid; savePrefs();
+    $('#d-dawam').classList.toggle('on', prefs.dawamiRecipe === p.uid);
+    toast(prefs.dawamiRecipe ? `☕ ${p.name} تتحضّر لحالها قبل الدوام بنص ساعة` : 'شلت قهوة الدوام');
+  });
   $('[data-back]').addEventListener('click', () => { show('home'); setTab(S.tab); });
 
   async function quitLoaded(msg) {
@@ -1188,6 +1196,36 @@
       document.documentElement.requestFullscreen().catch(() => {});
     keepAwake();
   }, true);
+
+  // ---------------------------------------------------------------- قهوة الدوام (دوامي)
+  // تابلت البيت بس: ينربط مرة بفتح الرابط ?dawami=<الرمز> (من صفحة الإدارة في دوامي). بعدها يسأل خادم دوامي
+  // كل ٣٠ ثانية، وقبل الدوام بنص ساعة يرد «go <المفتاح>»، فتتحضّر الوصفة المختارة بزر الساعة في صفحتها.
+  const DAWAMI = 'https://rawan.remedylab.dev/api/coffee';
+  (() => {
+    const q = new URLSearchParams(location.search), k = q.get('dawami');
+    if (!k || !/^[0-9a-f]{32}$/.test(k)) return;
+    prefs.dawamiKey = k; savePrefs(); q.delete('dawami');
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+    setTimeout(() => toast('انربطت بدوامي ☕ اختر وصفة القهوة من زر الساعة في صفحتها'), 500);
+  })();
+  let dawamiBusy = '';
+  async function dawamiPoll() {
+    if (!prefs.dawamiKey || dawamiBusy || SIM) return;
+    let t = '';
+    try { t = (await (await fetch(`${DAWAMI}?k=${prefs.dawamiKey}`, { cache: 'no-store' })).text()).trim(); } catch { return; }
+    if (!t.startsWith('go ')) return;
+    const id = t.slice(3).trim(), p = find(prefs.dawamiRecipe);
+    if (!p) return toast('قهوة الدوام: اختر الوصفة من زر الساعة في صفحتها');
+    if (!link.connected || S.flow !== 'idle') return;   // نعيد بعد ٣٠ ثانية
+    dawamiBusy = id;
+    try {
+      wake(); openDetail(p.uid); $('#d-start').click();
+      for (let i = 0; i < 90 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));
+      if (S.flow === 'brewing' && S.active === p.uid) await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+    } finally { dawamiBusy = ''; }
+  }
+  setInterval(dawamiPoll, 30000);
+  setTimeout(dawamiPoll, 3000);
 
   // ---------------------------------------------------------------- start
   loadLib();
