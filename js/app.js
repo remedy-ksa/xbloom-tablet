@@ -69,7 +69,7 @@
   const fmtNum = (x) => (Math.round(x * 10) / 10).toString();
   // forBrew: apply the quick "without grinding" switch (pre-ground coffee) without touching the saved recipe
   function toMachine(p, forBrew = false) {
-    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on && !(forBrew && prefs.noGrind),
+    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on && !(forBrew && (prefs.noGrind || S.forceNoGrind)),
       pours: p.pours.map((q) => ({ volume_ml: q.volume_ml, temp_c: q.temp_c, pattern: q.pattern, flow: q.flow, pause_s: q.pause_s,
         agitate_before: q.agitate_before, agitate_after: q.agitate_after })) };
   }
@@ -397,7 +397,7 @@
     /* الخزان مليان (المالك ٢١ نوفمبر: «اعبي الخزان قهوه ويصير الطحن تقريبي … ما يصير اوفر فلو»): نطحن قبل الوصفة
        بأمر الطاحونة اليدوي ونوقف لما يزيد الميزان قد جرعة الوصفة، وبعدين الوصفة بلا طحن. الباقي يبقى في الخزان */
     let ground = false;
-    if (prefs.hopper && p.grinder_on && !prefs.noGrind) {
+    if (prefs.hopper && p.grinder_on && !prefs.noGrind && !S.forceNoGrind) {
       if (S.hopperBusy) return;
       S.hopperBusy = true;
       let e;
@@ -427,11 +427,11 @@
     const k = keys.sort((a, b) => Math.abs(a - size) - Math.abs(b - size))[0];
     return { rate: r[k], from: k };
   }
-  async function hopperGrind(p) {
+  async function hopperGrind(p, fixedSecs) {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     /* بلا معايرة: ٢٥ ثانية ثابتة (المالك: «غالبا بين ٢٠ و ٣٠ ثانيه يعني خله متوسط ٢٥»). والمعايرة تدقّقها لكل درجة */
     const rf = rateFor(p.grind_size);
-    const secs = rf ? Math.min(60, p.dose_g / rf.rate) : (prefs.hopperSecs || 25);
+    const secs = fixedSecs || (rf ? Math.min(60, p.dose_g / rf.rate) : (prefs.hopperSecs || 25));
     toast(`أطحن ${p.dose_g} جرام من الخزان (${secs.toFixed(1)} ثانية)`);
     let e = await link.cmd('grinderEnter', p.grind_size, p.rpm);
     if (e) return e;
@@ -1295,12 +1295,20 @@
       return toast('قهوة الدوام: الكوب مو على المكينة، رجّعه وتبدأ لحالها');
     }
     dawamiBusy = id;
-    /* قهوة الدوام تطحن دايمًا (المالك ٢١ نوفمبر: «المفروض قهوه الدوام دايم مع طحن»): زر «بدون طحن» المحفوظ ما يمشي
-       عليها. نرجّع اختيار الزر بعد ما يبدأ التحضير، وما نحفظ التغيير */
+    /* قهوة الدوام وحضّري الحين دايمًا خطوتين (المالك ٢١ نوفمبر: «اول شي تضغط خيار الطاحونه لحاله وتطحن ٢٥ ثانيه بعدين
+       تروح خيار التحضير وتسوي تحضير بدون طحن»): الطاحونة لحالها ٢٥ ثانية بالضبط ثم الوصفة بلا طحن أبد، مهما كانت
+       الإعدادات. الوصفة بطحن تطحن الخزان كله، فما تنرسل من هنا أبد */
     const keepNoGrind = prefs.noGrind;
-    prefs.noGrind = false;
     try {
-      wake(); openDetail(p.uid); $('#d-start').click();
+      wake(); openDetail(p.uid);
+      if (p.grinder_on) {
+        S.hopperBusy = true;
+        let ge;
+        try { ge = await hopperGrind(p, 25); } finally { S.hopperBusy = false; }
+        if (ge) { toast('قهوة الدوام وقفت: ' + ge); return; }
+      }
+      S.forceNoGrind = true;
+      $('#d-start').click();
       for (let i = 0; i < 240 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));   // مع طحن الخزان ياخذ أطول
       if (S.flow === 'brewing' && S.active === p.uid) {
         await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
@@ -1318,7 +1326,7 @@
           await new Promise((r) => setTimeout(r, 500));
         }
       }
-    } finally { prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
+    } finally { S.forceNoGrind = false; prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
   }
   setInterval(dawamiPoll, 30000);
   setTimeout(dawamiPoll, 3000);
