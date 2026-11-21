@@ -1378,8 +1378,10 @@
     if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
   }
   if (!inApp && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWanted = true; });
+    /* أول تثبيت للـservice worker يسوي controllerchange بعد أول فتح، وهذا ما يحتاج إعادة. اللي بعده نسخة جديدة.
+       كانت الصفحة اللي انفتحت أول مرة (رابط جديد) ما تعيد نفسها أبد لين أحد يسكّرها (المالك ٢١ نوفمبر) */
+    let firstClaim = !navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (firstClaim) { firstClaim = false; return; } reloadWanted = true; });
     /* تحديث تلقائي (المالك ١٥ نوفمبر: «التابلت لازم أسكر الصفحة وأفتحها»): نشيّك على نسخة جديدة كل دقيقتين
        وكل ما رجعت الشاشة، وأول ما تتركّب تعيد الصفحة نفسها لما تكون فاضية (مو وقت تحضير ولا كتابة) */
     navigator.serviceWorker.register('sw.js').then((r) => {
@@ -1390,6 +1392,19 @@
       addEventListener('online', check);
     }).catch(() => {});
   }
+  /* احتياط للتحديث (المالك ٢١ نوفمبر: «ليش التابلت ما يحدث لحاله»): كل دقيقتين نقرا رقم النسخة من index.html على
+     الخادم مباشرة. لو أحدث من اللي شغّالة، نعيد الصفحة أول ما تكون فاضية (نفس شرط الإعادة فوق) */
+  const myVer = Number(((document.querySelector('script[src*="app.js"]') || {}).src || '').match(/v=(\d+)/)?.[1] || 0);
+  async function versionCheck() {
+    if (!myVer || SIM) return;
+    try {
+      const html = await (await fetch('index.html?_=' + Date.now(), { cache: 'no-store' })).text();
+      const live = Number((html.match(/app\.js\?v=(\d+)/) || [])[1] || 0);
+      if (live > myVer) reloadWanted = true;
+    } catch { /* بلا نت: نعيد بعدين */ }
+  }
+  setInterval(versionCheck, 2 * 60000);
+  setTimeout(versionCheck, 20000);
   setTimeout(backupNudge, 8000);
   if (new URLSearchParams(location.search).has('debug')) window.__panel = { S, link, lib: () => lib };  // console debugging, ?debug=1 only
 })();
