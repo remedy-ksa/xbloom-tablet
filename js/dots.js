@@ -194,6 +194,7 @@
     if (opts.level) f.view.progress = opts.level;
     const grounds = [];   // falling coffee bits while grinding
     const drops = [];     // drops in the stream
+    let kz = 1;           // حجم القمع والسيرفر: يصغرون وقت الصب والمجنون يكبر جنبهم (باريستا)
     f.start((F, t) => {
       const { w, h } = F.size();
       const ctx = F.ctx, v = F.view;
@@ -202,9 +203,22 @@
       // the drawing lives on the right half (info is on the left); in portrait, the top half
       const portrait = h > w, full = !!opts.full;
       const ax = full || portrait ? 0 : w * 0.5, aw = full || portrait ? w : w * 0.5, ah = full ? h : portrait ? h * 0.55 : h;
-      const u = Math.min(aw, ah) / 100 * (opts.zoom || 1);
-      const sx = ax + aw * (opts.cx || 0.3);     // dripper / carafe centre line
-      const top = ah * 0.17;
+      const u0 = Math.min(aw, ah) / 100 * (opts.zoom || 1);
+      /* وقت الصب (المالك ٢١ نوفمبر: «شلون السيرفر اكبر من المجنون؟»): المجنون باريستا واقف على الأرض بطول ٣ أرباع
+         المساحة تقريبًا، والقمع والسيرفر يصغرون لـ٤٠٪ ويقعدون على نفس الأرض، فتجي فوهة إبريقه (٤٣٪ من طوله فوق رجوله)
+         فوق القمع على طول. الانتقال ناعم */
+      const pourPose = v.pouring && opts.mascot !== false && ready(POSE.pour);
+      const top0 = ah * 0.17, ground = Math.min(ah * 0.8, top0 + 66 * u0);
+      /* طول المجنون: يملأ المساحة فوق الأرض (٨٥٪) بلا ما يطلع برا فوق أو يمين، وحجم القمع يتحسب منه:
+         حافة القمع تحت فوهة الإبريق بـ٥ وحدات */
+      const pr = ready(POSE.pour) ? POSE.pour.naturalWidth / POSE.pour.naturalHeight : 1;
+      const pourH = Math.min(ground * 0.85, (aw * 0.82) / (pr * 0.922));
+      const pourTip = ground + 1.5 * u0 - 0.429 * pourH;
+      const kPour = Math.min(1, Math.max(0.25, (ground - (pourTip + 5 * u0)) / (66 * u0)));
+      kz += ((pourPose ? kPour : 1) - kz) * 0.08;
+      const u = u0 * kz;
+      const top = kz > 0.999 ? top0 : ground - 66 * u;
+      const sx = ax + aw * ((opts.cx || 0.3) - 0.14 * Math.min(1, (1 - kz) / Math.max(0.01, 1 - kPour)));     // dripper / carafe centre line (يروح يسار وقت الصب عشان المجنون يوسع)
       const live = !v.paused;
 
       // coffee server: round glass belly, pouring spout on the left, yellow handle on the right
@@ -348,10 +362,11 @@
         /* المجنون باريستا وقت التقطير (المالك ٢١ نوفمبر): صورته ماسك إبريق التقطير (icons/majnoon-pour.png، من كودكس مثل
            باقي الوضعيات)، الفوهة فوق القمع تدوّر دوائر صغيرة، والماء ينزل منها على البن. الفوهة في الصورة عند ٧٫٨٪ من العرض
            و٥٧٪ من الطول */
-        const im = POSE.pour, hh = 40 * u, ww = hh * im.naturalWidth / im.naturalHeight;
+        const im = POSE.pour;
         const swirl = live ? t / 700 : 0;
-        const tipX = sx + 3 * u + Math.cos(swirl) * 4 * u;
-        const tipY = Math.max(dy0 - 12 * u, hh * 0.571 + 1 * u) + Math.sin(swirl) * 0.8 * u;
+        const tipX = sx + 2 * u + Math.cos(swirl) * 3 * u;
+        const tipY = dy0 - 3 * u - 5 * u0 + Math.sin(swirl) * 0.5 * u0;          // فوق حافة القمع بشوي
+        const hh = Math.min(pourH, Math.max(20 * u0, (ground + 1.5 * u0 - tipY) / 0.429)), ww = hh * im.naturalWidth / im.naturalHeight;
         const bedY = dy0 - 3 * u;
         ctx.save(); ctx.lineCap = 'round';
         ctx.strokeStyle = 'rgba(190,225,240,0.9)'; ctx.lineWidth = 1.1 * u;
