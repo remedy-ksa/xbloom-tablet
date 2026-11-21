@@ -417,34 +417,52 @@
     cmdResult('load', await link.load(frames));
   });
 
-  /** طحن بالوزن من الخزان: تصفير، تشغيل الطاحونة بدرجة الوصفة وسرعتها، ووقف عند الجرعة (ناقص ٠٫٤ جرام لأن الطاحونة
-   *  تكمّل شوي بعد الوقف). وقف أمان: دقيقتين، أو ١٥ ثانية والوزن ما زاد (الخزان فاضي). يرجع نص الخطأ أو null */
+  /* طحن بالوقت من الخزان (المالك ٢١ نوفمبر: «الميزان ما يقدر يقيس كم القهوه الي نزلت»): الطاحونة تطحن قد ثواني
+     محسوبة من «معدّل الطاحونة» (جرام بالثانية) اللي ينحفظ لكل درجة طحن بالمعايرة من الإعدادات، فما يطفح الخزان.
+     الدرجة اللي ما لها معايرة تاخذ أقرب درجة معايرة، وبلا معايرة أبد ما نطحن ونقول له يعايرها */
+  const rates = () => store.get('grindRates', {});            // { "<درجة>": جرام/ثانية }
+  function rateFor(size) {
+    const r = rates(), keys = Object.keys(r).map(Number).filter((k) => r[k] > 0);
+    if (!keys.length) return null;
+    const k = keys.sort((a, b) => Math.abs(a - size) - Math.abs(b - size))[0];
+    return { rate: r[k], from: k };
+  }
   async function hopperGrind(p) {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    toast(`أطحن ${p.dose_g} جرام من الخزان`);
+    const rf = rateFor(p.grind_size);
+    if (!rf) return 'الخزان مليان: عاير الطاحونة من الإعدادات أول';
+    const secs = Math.min(60, p.dose_g / rf.rate);
+    toast(`أطحن ${p.dose_g} جرام من الخزان (${secs.toFixed(1)} ثانية)`);
     let e = await link.cmd('grinderEnter', p.grind_size, p.rpm);
     if (e) return e;
     await wait(800);
-    e = await link.cmd('tare'); if (e) { await link.cmd('quitGrinder'); return e; }
-    await wait(1500);
-    const w0 = S.weight, t0 = Date.now();
     e = await link.cmd('grinderStart', p.grind_size, p.rpm);
     if (e) { await link.cmd('quitGrinder'); return e; }
-    let best = w0, bestAt = Date.now(), why = null;
-    while (true) {
-      await wait(150);
-      const got = S.weight - w0;
-      if (got >= p.dose_g - 0.4) break;
-      if (S.weight > best + 0.2) { best = S.weight; bestAt = Date.now(); }
-      if (Date.now() - bestAt > 15000) { why = 'الخزان فاضي أو الميزان ما يقرا: ما وصل الطحن للجرعة'; break; }
-      if (Date.now() - t0 > 120000) { why = 'الطحن طوّل أكثر من دقيقتين ووقّفته'; break; }
-      if (!link.connected) { why = 'انقطعت المكينة وقت الطحن'; break; }
-    }
+    const t0 = Date.now(); let why = null;
+    while (Date.now() - t0 < secs * 1000) { await wait(100); if (!link.connected) { why = 'انقطعت المكينة وقت الطحن'; break; } }
     await link.cmd('grinderStop');
     await wait(1200);
     await link.cmd('quitGrinder');
     await wait(800);
     return why;
+  }
+  /** المعايرة: تطحن ١٠ ثواني بالدرجة اللي يختارها، يوزن الطحين على أي ميزان ويكتب الجرامات */
+  async function calibrateGrind() {
+    if (!link.connected) return toast('المكينة مو متصلة');
+    const size = Number(prompt('درجة الطحن اللي تعايرها (مثل 40 للتقطير):', String(mod.gSize))) || 0;
+    if (!(size >= 1 && size <= 80)) return;
+    if (!confirm(`حط كوب أو فلتر فاضي تحت الطاحونة. بتطحن ١٠ ثواني بالدرجة ${size} من الخزان. نبدأ؟`)) return;
+    await link.cmd('grinderEnter', size, mod.gRpm);
+    await new Promise((r) => setTimeout(r, 800));
+    await link.cmd('grinderStart', size, mod.gRpm);
+    await new Promise((r) => setTimeout(r, 10000));
+    await link.cmd('grinderStop');
+    await new Promise((r) => setTimeout(r, 1200));
+    await link.cmd('quitGrinder');
+    const g = Number(String(prompt('كم جرام طلع؟ (وزنه على أي ميزان)', '') || '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    if (!(g > 0 && g < 200)) return toast('ما انحفظت المعايرة');
+    const r = rates(); r[size] = g / 10; store.set('grindRates', r);
+    toast(`انحفظت: الدرجة ${size} تطحن ${(g / 10).toFixed(2)} جرام بالثانية`);
   }
   $('#d-stop').addEventListener('click', async () => cmdResult('stop', await link.stop()));
   // quick switch: grind in the machine, or brew pre-ground coffee (remembered for next time)
@@ -1089,7 +1107,8 @@
   }));
   $('#st-awake').addEventListener('change', (e) => { prefs.awake = e.target.checked; savePrefs(); keepAwake(); });
   $('#st-machine').addEventListener('change', (e) => { prefs.machineAwake = e.target.checked; savePrefs(); });
-  $('#st-hopper').addEventListener('change', (e) => { prefs.hopper = e.target.checked; savePrefs(); toast(prefs.hopper ? 'الخزان مليان: أطحن قد الجرعة بالميزان وأوقف' : 'الطحن من الوصفة نفسها'); });
+  $('#st-hopper').addEventListener('change', (e) => { prefs.hopper = e.target.checked; savePrefs(); toast(prefs.hopper ? (rateFor(40) ? 'الخزان مليان: أطحن قد الجرعة بالوقت' : 'شغّلته. عاير الطاحونة من «عاير الطاحونة» تحته') : 'الطحن من الوصفة نفسها'); });
+  $('#st-calib').addEventListener('click', calibrateGrind);
   $('#st-sim').addEventListener('change', (e) => { prefs.sim = e.target.checked; savePrefs(); location.reload(); });
   $$('#st-idle button').forEach((b) => b.addEventListener('click', () => { prefs.idleMin = +b.dataset.idle; savePrefs(); renderSettings(); }));
   $$('#st-write button').forEach((b) => b.addEventListener('click', () => { link.setWriteMode(b.dataset.write); renderSettings(); }));
