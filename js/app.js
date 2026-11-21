@@ -1222,8 +1222,11 @@
     const p = find(uid) || find(prefs.dawamiRecipe) || find('h-jelly');
     if (!p) return toast('قهوة الدوام: اختر الوصفة من زر الساعة في صفحتها');
     if (!link.connected || S.flow !== 'idle') return;   // نعيد بعد ٣٠ ثانية
-    /* بلا فحص كوب بالميزان: الميزان يتصفّر والكوب عليه فيقرا صفر (٢١ نوفمبر: وقّف قهوة الدوام والكوب موجود).
-       الكوب يبقى دايمًا على المكينة بقرار المالك */
+    /* حماية الكوب ١ (المالك ٢١ نوفمبر): الميزان مصفّر والكوب عليه، فالصفر = الكوب موجود. السالب (تحت −٢٠ جرام)
+       = أحد شال الكوب بعد التصفير: ما نحضّر، ونعيد نسأل كل ٣٠ ثانية لين يرجع الكوب أو تخلص نافذة الوقت */
+    if (S.weightAt && Date.now() - S.weightAt < 15_000 && S.weight <= -20) {
+      return toast('قهوة الدوام: الكوب مو على المكينة، رجّعه وتبدأ لحالها');
+    }
     dawamiBusy = id;
     /* قهوة الدوام تطحن دايمًا (المالك ٢١ نوفمبر: «المفروض قهوه الدوام دايم مع طحن»): زر «بدون طحن» المحفوظ ما يمشي
        عليها. نرجّع اختيار الزر بعد ما يبدأ التحضير، وما نحفظ التغيير */
@@ -1232,7 +1235,22 @@
     try {
       wake(); openDetail(p.uid); $('#d-start').click();
       for (let i = 0; i < 90 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));
-      if (S.flow === 'brewing' && S.active === p.uid) await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+      if (S.flow === 'brewing' && S.active === p.uid) {
+        await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+        prefs.noGrind = keepNoGrind;
+        /* حماية الكوب ٢: لما يصب ٣٠ مل والميزان ما زاد ١٠ جرام، الماء مو نازل في كوب: نوقف التحضير على طول */
+        const w0 = S.weight;
+        for (let i = 0; i < 360 && S.flow === 'brewing' && S.active === p.uid; i++) {
+          if (S.water >= 30 && S.weight - w0 < 10) {
+            toast('قهوة الدوام وقفت: الماء ما نزل في كوب');
+            await link.stop();
+            await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}&fail=nocup`, { method: 'POST' }).catch(() => {});
+            break;
+          }
+          if (S.water >= 30) break;              // الماء نازل والوزن يزيد: الكوب موجود
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
     } finally { prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
   }
   setInterval(dawamiPoll, 30000);
