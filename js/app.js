@@ -1252,7 +1252,10 @@
       if (!atHome) goHomeIdle();
     }
     if (!busy() && !typing() && prefs.idleMin > 0 && idle > prefs.idleMin * 60000) showClock();
-    if (reloadWanted && !busy() && !typing() && $('#ov-finish').hidden && S.screen === 'home') location.reload();   // M13
+    /* الإعادة تقطع البلوتوث، والرجوع لحاله يحتاج getDevices في كروم (الأندرويد: خيار في chrome://flags). بلاه، والمكينة
+       متصلة، ما نعيد لحالنا عشان قهوة الدوام ما تلقى المكينة مفصولة (المالك ٢١ نوفمبر: «فصل التابلت من البلوتوث يوم تحدث») */
+    const canRestore = !!(navigator.bluetooth && navigator.bluetooth.getDevices);
+    if (reloadWanted && !busy() && !typing() && $('#ov-finish').hidden && S.screen === 'home' && (canRestore || !link.connected)) location.reload();   // M13
     if (!$('#ov-clock').hidden) tickIdleClock();
     if (acct.signedIn && !acct.expired && !syncing && Date.now() >= nextSync && !busy()) sync(false);
     updateConnectCard();
