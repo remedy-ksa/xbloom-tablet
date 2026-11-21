@@ -212,13 +212,13 @@
       /* طول المجنون: يملأ المساحة فوق الأرض (٨٥٪) بلا ما يطلع برا فوق أو يمين، وحجم القمع يتحسب منه:
          حافة القمع تحت فوهة الإبريق بـ٥ وحدات */
       const pr = ready(POSE.pour) ? POSE.pour.naturalWidth / POSE.pour.naturalHeight : 1;
-      const pourH = Math.min(ground * 0.85, (aw * 0.82) / (pr * 0.922));
+      const pourH = Math.min(ground * 0.97, (aw * 0.95) / (pr * 0.922));   // المالك: «خل الرسمه اكبر»
       const pourTip = ground + 1.5 * u0 - 0.429 * pourH;
       const kPour = Math.min(1, Math.max(0.25, (ground - (pourTip + 5 * u0)) / (66 * u0)));
       kz += ((pourPose ? kPour : 1) - kz) * 0.08;
       const u = u0 * kz;
       const top = kz > 0.999 ? top0 : ground - 66 * u;
-      const sx = ax + aw * ((opts.cx || 0.3) - 0.14 * Math.min(1, (1 - kz) / Math.max(0.01, 1 - kPour)));     // dripper / carafe centre line (يروح يسار وقت الصب عشان المجنون يوسع)
+      const sx = ax + aw * ((opts.cx || 0.3) - 0.2 * Math.min(1, (1 - kz) / Math.max(0.01, 1 - kPour)));     // dripper / carafe centre line (يروح يسار وقت الصب عشان المجنون يوسع)
       const live = !v.paused;
 
       // coffee server: round glass belly, pouring spout on the left, yellow handle on the right
