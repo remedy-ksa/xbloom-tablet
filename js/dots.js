@@ -163,7 +163,7 @@
   const INK = '#1A2219', PAPER = '#F5F8F2', YEL = '#F4C700', YEL_SH = '#D8B200', LOL = '#DE9457', SHADE = 'rgba(26,34,25,.22)';
   const LINES = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5'];
   const POSE = {};
-  for (const n of ['write', 'run', 'sleep', 'happy', 'glasses']) {
+  for (const n of ['write', 'run', 'sleep', 'happy', 'glasses', 'pour']) {
     POSE[n] = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: `icons/majnoon-${n}.png` }) : null;
   }
   const ready = (im) => im && im.complete && im.naturalWidth;
@@ -344,6 +344,21 @@
         ctx.globalAlpha = 1;
       } else if (v.grinding) {
         majnoon(ctx, POSE.run, mx, foot2, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
+      } else if (v.pouring && ready(POSE.pour)) {
+        /* المجنون باريستا وقت التقطير (المالك ٢١ نوفمبر): صورته ماسك إبريق التقطير (icons/majnoon-pour.png، من كودكس مثل
+           باقي الوضعيات)، الفوهة فوق القمع تدوّر دوائر صغيرة، والماء ينزل منها على البن. الفوهة في الصورة عند ٧٫٨٪ من العرض
+           و٥٧٪ من الطول */
+        const im = POSE.pour, hh = 40 * u, ww = hh * im.naturalWidth / im.naturalHeight;
+        const swirl = live ? t / 700 : 0;
+        const tipX = sx + 3 * u + Math.cos(swirl) * 4 * u;
+        const tipY = Math.max(dy0 - 12 * u, hh * 0.571 + 1 * u) + Math.sin(swirl) * 0.8 * u;
+        const bedY = dy0 - 3 * u;
+        ctx.save(); ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(190,225,240,0.9)'; ctx.lineWidth = 1.1 * u;
+        ctx.beginPath(); ctx.moveTo(tipX, tipY);
+        for (let j = 1; j <= 6; j++) ctx.lineTo(tipX + Math.sin(t / 90 + j) * 0.25 * u, tipY + (bedY - tipY) * j / 6);
+        ctx.stroke(); ctx.restore();
+        ctx.drawImage(im, tipX - ww * 0.078, tipY - hh * 0.571 + Math.sin(t / 380) * 0.4 * u, ww, hh);
       } else if (v.pouring) {
         majnoon(ctx, POSE.write, mx, foot2, 40 * u, Math.abs(Math.sin(t / 420)) * 1.2 * u);
       } else {
