@@ -16,7 +16,7 @@
       }
     },
   };
-  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false }, store.get('prefs', {}));
+  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false, machineAwake: true }, store.get('prefs', {}));
   const savePrefs = () => store.set('prefs', prefs);
   const SIM = new URLSearchParams(location.search).has('sim') || prefs.sim;
 
@@ -1004,6 +1004,7 @@
     $('#st-sync').textContent = syncing ? 'يزامن…' : syncErr ? 'خطأ: ' + syncErr
       : lastSync ? 'آخر مزامنة ' + new Date(lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
     $('#st-awake').checked = prefs.awake;
+    $('#st-machine').checked = prefs.machineAwake;
     $('#st-sim').checked = SIM;
     $$('#st-idle button').forEach((b) => b.classList.toggle('on', +b.dataset.idle === prefs.idleMin));
     $$('#st-write button').forEach((b) => b.classList.toggle('on', b.dataset.write === (link.writeMode || 'auto')));
@@ -1040,6 +1041,7 @@
     acct.signOut(); lib = lib.filter((p) => BUILTIN(p) || (p.kind === 'mine' && !p.id)); saveLib(); lastSync = 0; store.set('lastSync', 0); renderSettings();
   }));
   $('#st-awake').addEventListener('change', (e) => { prefs.awake = e.target.checked; savePrefs(); keepAwake(); });
+  $('#st-machine').addEventListener('change', (e) => { prefs.machineAwake = e.target.checked; savePrefs(); });
   $('#st-sim').addEventListener('change', (e) => { prefs.sim = e.target.checked; savePrefs(); location.reload(); });
   $$('#st-idle button').forEach((b) => b.addEventListener('click', () => { prefs.idleMin = +b.dataset.idle; savePrefs(); renderSettings(); }));
   $$('#st-write button').forEach((b) => b.addEventListener('click', () => { link.setWriteMode(b.dataset.write); renderSettings(); }));
@@ -1076,7 +1078,7 @@
     renderStatus(); renderSettings(); refreshDetail(); updateConnectCard();
   });
   link.on('weight', (g) => {
-    S.weight = g;
+    S.weight = g; S.weightAt = Date.now();
     if (Math.abs(g - S.wakeRef) >= 2) { S.wakeRef = g; wake(); }
     renderScale();
   });
@@ -1214,9 +1216,18 @@
     let t = '';
     try { t = (await (await fetch(`${DAWAMI}?k=${prefs.dawamiKey}`, { cache: 'no-store' })).text()).trim(); } catch { return; }
     if (!t.startsWith('go ')) return;
-    const id = t.slice(3).trim(), p = find(prefs.dawamiRecipe);
+    /* «go <المفتاح> [الوصفة]»: الوصفة من الجوال (صفحة إدارة دوامي، المالك ٢١ نوفمبر: «خلني اقدر اختار الوصفه»)،
+       وإلا اللي عليها زر الساعة، وإلا jelly */
+    const [id, uid] = t.slice(3).trim().split(/\s+/);
+    const p = find(uid) || find(prefs.dawamiRecipe) || find('h-jelly');
     if (!p) return toast('قهوة الدوام: اختر الوصفة من زر الساعة في صفحتها');
     if (!link.connected || S.flow !== 'idle') return;   // نعيد بعد ٣٠ ثانية
+    /* حماية الماء: لو الميزان قرا خلال آخر ١٠ ثواني وما عليه شي، ما نحضّر (الكوب المفروض يبقى دايمًا على المكينة) */
+    if (S.weightAt && Date.now() - S.weightAt < 10_000 && Math.abs(S.weight) < 3) {
+      toast('قهوة الدوام: ما فيه كوب على الميزان');
+      await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}&fail=nocup`, { method: 'POST' }).catch(() => {});
+      return;
+    }
     dawamiBusy = id;
     try {
       wake(); openDetail(p.uid); $('#d-start').click();
@@ -1226,6 +1237,28 @@
   }
   setInterval(dawamiPoll, 30000);
   setTimeout(dawamiPoll, 3000);
+
+  /* قائمة الوصفات لصفحة إدارة دوامي: عشان عبدالرحمن يختار من جواله وش تتحضّر (الاسم والرقم بس) */
+  let sentList = '';
+  async function dawamiRecipes() {
+    if (!prefs.dawamiKey || SIM) return;
+    const list = lib.map((p) => ({ uid: p.uid, name: String(p.name || '').slice(0, 60) })).slice(0, 200);
+    const body = JSON.stringify(list);
+    if (body === sentList) return;
+    try {
+      const r = await fetch(`${DAWAMI}/recipes?k=${prefs.dawamiKey}`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body });
+      if (r.ok) sentList = body;
+    } catch { /* نعيد بعدين */ }
+  }
+  setTimeout(dawamiRecipes, 5000);
+  setInterval(dawamiRecipes, 10 * 60000);
+
+  /* المكينة ما تنام (المالك ٢١ نوفمبر: «اعطيها اوامر وهميه ما تسوي شي كل شوي»): كل دقيقتين وهي فاضية نرسل لها
+     وحدة الميزان نفسها اللي عليها (ما يطحن ولا يصب ولا يغيّر شي). يتطفّى من الإعدادات */
+  setInterval(() => {
+    if (!prefs.machineAwake || SIM || !link.connected || S.flow !== 'idle') return;
+    link.cmd('weightUnit', { g: XB.UNIT.G, oz: XB.UNIT.OZ, ml: XB.UNIT.ML }[mod.unit] ?? XB.UNIT.G).catch?.(() => {});
+  }, 2 * 60000);
 
   // ---------------------------------------------------------------- start
   loadLib();
