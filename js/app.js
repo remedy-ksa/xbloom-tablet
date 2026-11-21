@@ -1146,6 +1146,7 @@
   });
   link.on('weight', (g) => {
     S.weight = g; S.weightAt = Date.now();
+    trackServer(g);
     if (Math.abs(g - S.wakeRef) >= 2) { S.wakeRef = g; wake(); }
     renderScale();
   });
@@ -1280,6 +1281,21 @@
     history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
     setTimeout(() => toast('انربطت بدوامي ☕ اختر وصفة القهوة من زر الساعة في صفحتها'), 500);
   })();
+  /* السيرفر على المكينة؟ نتابع حركة الميزان مو رقمه (الرقم يعتمد على وش كان عليه لما انصفّر): لما يثبت الوزن على
+     قيمة جديدة أقل بـ١٠٠ جرام أو أكثر = السيرفر انشال، وأكثر بـ١٠٠ = رجع. وقت التحضير ما نتابع (الماء يزيد الوزن) */
+  let steady = null, last = null, same = 0;
+  function trackServer(g) {
+    if (S.flow !== 'idle') { steady = null; last = null; same = 0; return; }
+    if (last !== null && Math.abs(g - last) < 2) same++; else same = 0;
+    last = g;
+    if (same < 3) return;                 // ٤ قراءات ورا بعض ثابتة
+    if (steady === null) { steady = g; return; }
+    const d = g - steady;
+    if (d <= -100) S.serverOff = true;
+    else if (d >= 100) S.serverOff = false;
+    if (Math.abs(d) >= 2) steady = g;
+  }
+
   let dawamiBusy = '';
   async function dawamiPoll() {
     if (!prefs.dawamiKey || dawamiBusy || SIM) return;
@@ -1292,8 +1308,7 @@
     const p = find(uid) || find(prefs.dawamiRecipe) || find('h-jelly');
     if (!p) return toast('قهوة الدوام: اختر الوصفة من زر الساعة في صفحتها');
     if (!link.connected || S.flow !== 'idle') return;   // نعيد بعد ٣٠ ثانية
-    /* بلا فحص كوب بالميزان أبد (٢١ نوفمبر: قالت «الكوب مو على المكينة» والسيرفر عليها، لأن الميزان انصفّر على شي أثقل).
-       الكوب يبقى دايمًا على المكينة بقرار المالك */
+    if (S.serverOff) return toast('قهوة الدوام: السيرفر انشال من المكينة. رجّعه وتبدأ لحالها');
     dawamiBusy = id;
     /* قهوة الدوام وحضّري الحين (المالك ٢١ نوفمبر: «حط تقطير مع طحن وانتظر بعد الطحن ٢٥ ثانيه وبعدين الغ العمليه
        وسوي تحضير بدون طحن»، وصارت ٣٥ ثانية): الوصفة بطحن تبدأ (فأداة التقطير تروح مكانها)، وبعد ٣٥ ثانية من بداية الطحن نلغي العملية
@@ -1308,7 +1323,7 @@
         S.forceGrind = false;
         for (let i = 0; i < 60 && S.flow !== 'brewing'; i++) await sleep(1000);
         if (S.flow !== 'brewing') { toast('قهوة الدوام: الطحن ما بدأ'); return; }
-        await sleep(35000);   // المالك ٢١ نوفمبر: «طول وقت الطحن خله ٣٥ ثانيه»
+        await sleep(30000);   // المالك ٢١ نوفمبر: الطحن ٣٠ ثانية
         cmdResult('stop', await link.stop());
         for (let i = 0; i < 20 && S.flow !== 'idle'; i++) await sleep(1000);
         await sleep(3000);
