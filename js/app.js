@@ -1225,11 +1225,15 @@
     /* بلا فحص كوب بالميزان: الميزان يتصفّر والكوب عليه فيقرا صفر (٢١ نوفمبر: وقّف قهوة الدوام والكوب موجود).
        الكوب يبقى دايمًا على المكينة بقرار المالك */
     dawamiBusy = id;
+    /* قهوة الدوام تطحن دايمًا (المالك ٢١ نوفمبر: «المفروض قهوه الدوام دايم مع طحن»): زر «بدون طحن» المحفوظ ما يمشي
+       عليها. نرجّع اختيار الزر بعد ما يبدأ التحضير، وما نحفظ التغيير */
+    const keepNoGrind = prefs.noGrind;
+    prefs.noGrind = false;
     try {
       wake(); openDetail(p.uid); $('#d-start').click();
       for (let i = 0; i < 90 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));
       if (S.flow === 'brewing' && S.active === p.uid) await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
-    } finally { dawamiBusy = ''; }
+    } finally { prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
   }
   setInterval(dawamiPoll, 30000);
   setTimeout(dawamiPoll, 3000);
