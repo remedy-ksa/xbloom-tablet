@@ -16,7 +16,7 @@
       }
     },
   };
-  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false, machineAwake: true }, store.get('prefs', {}));
+  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false, machineAwake: true, hopper: false }, store.get('prefs', {}));
   const savePrefs = () => store.set('prefs', prefs);
   const SIM = new URLSearchParams(location.search).has('sim') || prefs.sim;
 
@@ -394,12 +394,58 @@
     if (S.flow !== 'idle') return toast('فيه وصفة ثانية على المكينة');
     const p = find(S.cur);
     if (!p) return;
+    /* الخزان مليان (المالك ٢١ نوفمبر: «اعبي الخزان قهوه ويصير الطحن تقريبي … ما يصير اوفر فلو»): نطحن قبل الوصفة
+       بأمر الطاحونة اليدوي ونوقف لما يزيد الميزان قد جرعة الوصفة، وبعدين الوصفة بلا طحن. الباقي يبقى في الخزان */
+    let ground = false;
+    if (prefs.hopper && p.grinder_on && !prefs.noGrind) {
+      if (S.hopperBusy) return;
+      S.hopperBusy = true;
+      let e;
+      try { e = await hopperGrind(p); } finally { S.hopperBusy = false; }
+      if (e) return toast(e);
+      if (S.flow !== 'idle') return;
+      ground = true;
+    }
+    const keepNG = prefs.noGrind;
+    if (ground) prefs.noGrind = true;
     const err = XB.validate(toMachine(p, true));
     if (err) return toast(err);
     S.active = S.cur; S.flow = 'loading';
     refreshDetail(); renderStatus();
-    cmdResult('load', await link.load(toMachine(p, true)));
+    const frames = toMachine(p, true);
+    prefs.noGrind = keepNG;
+    cmdResult('load', await link.load(frames));
   });
+
+  /** طحن بالوزن من الخزان: تصفير، تشغيل الطاحونة بدرجة الوصفة وسرعتها، ووقف عند الجرعة (ناقص ٠٫٤ جرام لأن الطاحونة
+   *  تكمّل شوي بعد الوقف). وقف أمان: دقيقتين، أو ١٥ ثانية والوزن ما زاد (الخزان فاضي). يرجع نص الخطأ أو null */
+  async function hopperGrind(p) {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    toast(`أطحن ${p.dose_g} جرام من الخزان`);
+    let e = await link.cmd('grinderEnter', p.grind_size, p.rpm);
+    if (e) return e;
+    await wait(800);
+    e = await link.cmd('tare'); if (e) { await link.cmd('quitGrinder'); return e; }
+    await wait(1500);
+    const w0 = S.weight, t0 = Date.now();
+    e = await link.cmd('grinderStart', p.grind_size, p.rpm);
+    if (e) { await link.cmd('quitGrinder'); return e; }
+    let best = w0, bestAt = Date.now(), why = null;
+    while (true) {
+      await wait(150);
+      const got = S.weight - w0;
+      if (got >= p.dose_g - 0.4) break;
+      if (S.weight > best + 0.2) { best = S.weight; bestAt = Date.now(); }
+      if (Date.now() - bestAt > 15000) { why = 'الخزان فاضي أو الميزان ما يقرا: ما وصل الطحن للجرعة'; break; }
+      if (Date.now() - t0 > 120000) { why = 'الطحن طوّل أكثر من دقيقتين ووقّفته'; break; }
+      if (!link.connected) { why = 'انقطعت المكينة وقت الطحن'; break; }
+    }
+    await link.cmd('grinderStop');
+    await wait(1200);
+    await link.cmd('quitGrinder');
+    await wait(800);
+    return why;
+  }
   $('#d-stop').addEventListener('click', async () => cmdResult('stop', await link.stop()));
   // quick switch: grind in the machine, or brew pre-ground coffee (remembered for next time)
   $$('#d-grind button').forEach((b) => b.addEventListener('click', () => {
@@ -1005,6 +1051,7 @@
       : lastSync ? 'آخر مزامنة ' + new Date(lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
     $('#st-awake').checked = prefs.awake;
     $('#st-machine').checked = prefs.machineAwake;
+    $('#st-hopper').checked = prefs.hopper;
     $('#st-sim').checked = SIM;
     $$('#st-idle button').forEach((b) => b.classList.toggle('on', +b.dataset.idle === prefs.idleMin));
     $$('#st-write button').forEach((b) => b.classList.toggle('on', b.dataset.write === (link.writeMode || 'auto')));
@@ -1042,6 +1089,7 @@
   }));
   $('#st-awake').addEventListener('change', (e) => { prefs.awake = e.target.checked; savePrefs(); keepAwake(); });
   $('#st-machine').addEventListener('change', (e) => { prefs.machineAwake = e.target.checked; savePrefs(); });
+  $('#st-hopper').addEventListener('change', (e) => { prefs.hopper = e.target.checked; savePrefs(); toast(prefs.hopper ? 'الخزان مليان: أطحن قد الجرعة بالميزان وأوقف' : 'الطحن من الوصفة نفسها'); });
   $('#st-sim').addEventListener('change', (e) => { prefs.sim = e.target.checked; savePrefs(); location.reload(); });
   $$('#st-idle button').forEach((b) => b.addEventListener('click', () => { prefs.idleMin = +b.dataset.idle; savePrefs(); renderSettings(); }));
   $$('#st-write button').forEach((b) => b.addEventListener('click', () => { link.setWriteMode(b.dataset.write); renderSettings(); }));
@@ -1234,7 +1282,7 @@
     prefs.noGrind = false;
     try {
       wake(); openDetail(p.uid); $('#d-start').click();
-      for (let i = 0; i < 90 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));
+      for (let i = 0; i < 240 && S.flow !== 'brewing'; i++) await new Promise((r) => setTimeout(r, 1000));   // مع طحن الخزان ياخذ أطول
       if (S.flow === 'brewing' && S.active === p.uid) {
         await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
         prefs.noGrind = keepNoGrind;
