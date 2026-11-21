@@ -1313,18 +1313,7 @@
       if (S.flow === 'brewing' && S.active === p.uid) {
         await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
         prefs.noGrind = keepNoGrind;
-        /* حماية الكوب ٢: لما يصب ٣٠ مل والميزان ما زاد ١٠ جرام، الماء مو نازل في كوب: نوقف التحضير على طول */
-        const w0 = S.weight;
-        for (let i = 0; i < 360 && S.flow === 'brewing' && S.active === p.uid; i++) {
-          if (S.water >= 30 && S.weight - w0 < 10) {
-            toast('قهوة الدوام وقفت: الماء ما نزل في كوب');
-            await link.stop();
-            await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}&fail=nocup`, { method: 'POST' }).catch(() => {});
-            break;
-          }
-          if (S.water >= 30) break;              // الماء نازل والوزن يزيد: الكوب موجود
-          await new Promise((r) => setTimeout(r, 500));
-        }
+        /* شلت «حماية الكوب ٢» (٢١ نوفمبر): الميزان ما يقرا وقت الصب في الوصفة، فكانت توقف التحضير الصحيح وتقول «الماء ما نزل في كوب» */
       }
     } finally { S.forceNoGrind = false; prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
   }
