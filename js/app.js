@@ -1222,12 +1222,8 @@
     const p = find(uid) || find(prefs.dawamiRecipe) || find('h-jelly');
     if (!p) return toast('قهوة الدوام: اختر الوصفة من زر الساعة في صفحتها');
     if (!link.connected || S.flow !== 'idle') return;   // نعيد بعد ٣٠ ثانية
-    /* حماية الماء: لو الميزان قرا خلال آخر ١٠ ثواني وما عليه شي، ما نحضّر (الكوب المفروض يبقى دايمًا على المكينة) */
-    if (S.weightAt && Date.now() - S.weightAt < 10_000 && Math.abs(S.weight) < 3) {
-      toast('قهوة الدوام: ما فيه كوب على الميزان');
-      await fetch(`${DAWAMI}/done?k=${prefs.dawamiKey}&id=${encodeURIComponent(id)}&fail=nocup`, { method: 'POST' }).catch(() => {});
-      return;
-    }
+    /* بلا فحص كوب بالميزان: الميزان يتصفّر والكوب عليه فيقرا صفر (٢١ نوفمبر: وقّف قهوة الدوام والكوب موجود).
+       الكوب يبقى دايمًا على المكينة بقرار المالك */
     dawamiBusy = id;
     try {
       wake(); openDetail(p.uid); $('#d-start').click();
