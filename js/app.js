@@ -529,12 +529,13 @@
     if (!p || !$('#ov-brew').hidden) return;
     wake();
     S.lastWater = 0; S.lastWaterAt = 0; S.pourIdx = -1;
+    S.tl0 = 0; S.syncIdx = -1; S.waterSeen = false; S.pourSeen = false; S.say = null; S.taps = 0; S.tapUntil = 0;
     $('#bw-name').textContent = p.name;
     $('#bw-total').textContent = `/ ${totalWater(p)} ml`;
     $('#ov-brew').hidden = false;
     tilesOn(false);
     if (brewFx) brewFx.stop();
-    brewFx = Dots.brew($('#brew-canvas'));
+    brewFx = Dots.brew($('#brew-canvas'), { enter: 'now' });
     updateBrew();
   }
   function updateBrew() {
@@ -542,8 +543,9 @@
     const p = find(S.active);
     if (!p) return;
     if (S.water > S.lastWater + 0.4) { S.lastWater = S.water; S.lastWaterAt = Date.now(); }
-    const pouring = S.lastWaterAt && Date.now() - S.lastWaterAt < 1500;
-    const i = S.pourIdx >= 0 && S.pourIdx < p.pours.length ? S.pourIdx : -1;
+    const B = brewStage(p);
+    const pouring = B.pouring;
+    const i = S.pourIdx >= 0 && S.pourIdx < p.pours.length ? S.pourIdx : B.i >= 0 && B.i < p.pours.length && S.pourSeen ? B.i : -1;
     let title, sub;
     if (S.activity === 34) { title = 'يطحن'; sub = `${fmtNum(p.dose_g)} g · G${p.grind_size} · ${p.rpm} rpm`; }
     else if (i < 0) { title = 'جاري البدء'; sub = `${p.pours.length} صبّات · ${totalWater(p)} ml`; }
@@ -555,8 +557,64 @@
     $('#bw-t').textContent = fmtMS(S.brewStart ? Date.now() - S.brewStart : 0);
     useIcon($('#bw-pause .ic'), S.flow === 'paused' ? 'play' : 'pause');
     $('#ov-brew').classList.toggle('paused', S.flow === 'paused');
-    brewFx.view = { progress: Math.min(1, S.water / Math.max(1, totalWater(p))), pouring, grinding: S.activity === 34, paused: S.flow === 'paused' };
+    const wP = Math.min(1, S.water / Math.max(1, totalWater(p)));
+    const tP = B.i >= 0 ? Math.min(1, cumWater(p, B.i + (B.pouring ? 0.5 : 1)) / Math.max(1, totalWater(p))) : 0;
+    brewFx.view = { progress: S.waterSeen ? wP : tP * 0.95, pouring, grinding: B.st === 'grind', paused: B.st === 'paused',
+      wait: B.st === 'wait' || B.st === 'bloomWait', drain: B.st === 'drain', say: talk(B.st, p, B.i) };
   }
+  /* وين وصل التحضير، عشان المجنون يسوي نفس اللي تسويه المكينة (المالك ٢٢ نوفمبر: «اذا بدات الصب المفروض يجي المجنون
+     ويصب»). قبل كانت وضعية الصب على قراءة الماء بس، وتطفي لو تأخرت القراءة ثانية ونص. الحين: الماي إذا يوصل (ونعرف
+     منه رقم الصبة)، وإشارة الصبة من المكينة، وإذا ما وصل شي نمشي على جدول الوصفة نفسها (صب الماي على سرعته ثم الانتظار) */
+  const cumWater = (p, k) => p.pours.slice(0, Math.floor(k)).reduce((a, q) => a + (+q.volume_ml || 0), 0) + (k % 1 ? (+(p.pours[Math.floor(k)] || {}).volume_ml || 0) * (k % 1) : 0);
+  function brewStage(p) {
+    const now = Date.now(), n = p.pours.length;
+    if (S.flow === 'paused') return { st: 'paused', i: S.pourIdx, pouring: false };
+    if (S.activity === 34) { S.tl0 = 0; return { st: 'grind', i: -1, pouring: false }; }
+    if (S.water > 0.5 && !S.waterSeen) { S.waterSeen = true; link.log && link.log('water reading during brew: ' + S.water.toFixed(1)); }
+    // جدول الوصفة: كل صبة مدتها ماها على سرعتها، وبعدها انتظارها
+    const sched = []; let at = 0;
+    p.pours.forEach((q, k) => { const d = (+q.volume_ml || 0) / Math.max(1, +q.flow || 3); sched.push({ a: at, b: at + d, c: at + d + (+q.pause_s || 0) }); at += d + (+q.pause_s || 0); });
+    if (!S.tl0 && (S.activity === 30 || S.activity === 35 || S.activity === 16)) S.tl0 = now;
+    if (S.pourIdx >= 0 && S.pourIdx !== S.syncIdx && sched[S.pourIdx]) { S.syncIdx = S.pourIdx; S.tl0 = now - sched[S.pourIdx].a * 1000; link.log && link.log('pour ' + (S.pourIdx + 1) + ' signal'); }
+    let i = -1, pouring = false;
+    if (S.waterSeen) {
+      pouring = now - S.lastWaterAt < 2500;
+      i = n; for (let k = 0; k < n; k++) if (S.water < cumWater(p, k + 1) - 1) { i = k; break; }
+      if (!pouring && i < n && S.water >= cumWater(p, i) - 1 && S.water < cumWater(p, i) + 1 && i > 0) i -= 1;   // بين صبتين: الانتظار تبع اللي خلصت
+    } else if (S.tl0) {
+      const el = (now - S.tl0) / 1000;
+      i = n; for (let k = 0; k < n; k++) if (el < sched[k].c) { i = k; pouring = el >= sched[k].a && el < sched[k].b; break; }
+    }
+    if (S.pourIdx >= 0 && S.pourIdx < n && !S.waterSeen) i = Math.max(i, S.pourIdx);
+    if (pouring) S.pourSeen = true;
+    if (!S.pourSeen) return { st: 'start', i: -1, pouring: false };
+    if (i >= n) return { st: 'drain', i: n - 1, pouring: false };
+    if (pouring) return { st: i === 0 ? 'bloom' : i === n - 1 ? 'last' : 'pour', i, pouring: true };
+    return { st: i === n - 1 ? 'drain' : i === 0 ? 'bloomWait' : 'wait', i, pouring: false };
+  }
+  /* سواليف المجنون (js/majnoon-talk.js): سطر جديد أول ما تتغير المرحلة أو الصبة، وبعدها كل ٨ ثواني، وما يتكرر.
+     لو دقيت على المجنون يرد عليك ٤ ثواني وبعدين يرجع لسالفته */
+  function talk(st, p, i, extra) {
+    if (!window.MajTalk) return '';
+    const now = Date.now();
+    if (S.tapUntil > now && S.tapLine) return S.tapLine;
+    const key = st + ':' + i;
+    const o = Object.assign({ i, cups: today.n, taps: S.taps || 0, time: S.brewStart ? fmtMS(now - S.brewStart) : null,
+      left: S.waterSeen && p.pours ? Math.max(0, Math.round((totalWater(p) - S.water) / 5) * 5) : undefined }, extra || {});   // الباقي من الماي الحقيقي إذا يوصل
+    if (!S.say || S.say.key !== key && now - S.say.at > 1200 || now - S.say.at > 8000) {
+      const t = MajTalk.pick(st, MajTalk.ctx(p, o));
+      if (t || !S.say || S.say.key !== key) S.say = { key, at: now, text: t || (S.say && S.say.key === key ? S.say.text : '') };
+    }
+    return S.say.text;
+  }
+  function tapMajnoon(fx, e, p, extra) {
+    if (!fx || !fx.hit || !fx.hit(e.clientX, e.clientY) || !window.MajTalk) return;
+    S.taps = (S.taps || 0) + 1;
+    S.tapLine = MajTalk.pick('tap', MajTalk.ctx(p, Object.assign({ taps: S.taps, cups: today.n }, extra || {})));
+    S.tapUntil = Date.now() + 4000;
+    if (fx === brewFx) updateBrew();
+  }
+  $('#brew-canvas').addEventListener('click', (e) => tapMajnoon(brewFx, e, find(S.active)));
   function hideBrew() { if ($('#ov-brew').hidden) return; $('#ov-brew').hidden = true; if (brewFx) brewFx.stop(); tilesOn(homeVisible()); }
   $('#bw-pause').addEventListener('click', async () => {
     if (S.flow === 'paused') cmdResult('resume', await link.resume());
@@ -579,7 +637,8 @@
     $('#ov-finish').hidden = false;
     tilesOn(false);
     if (finishFx) finishFx.stop();
-    finishFx = Dots.finish($('#finish-canvas'));
+    const fp = find(S.active) || (pending && find(pending.uid));
+    finishFx = Dots.finish($('#finish-canvas'), { say: window.MajTalk && fp ? MajTalk.pick('done', MajTalk.ctx(fp, { cups: today.n, time: fmtMS(ms) })) : '' });
     clearTimeout(finishTimer);
     finishTimer = setTimeout(hideFinish, 90 * 1000);
   }
@@ -663,8 +722,22 @@
   }
   $$('#br-pattern button').forEach((b) => b.addEventListener('click', () => setPattern(+b.dataset.pat, true)));
   setPattern(mod.bPat, false);
+  /* التقطير اليدوي: المجنون يسولف وهو يصب، ولما يخلص ينبسط ويقول كلمة الختام ٦ ثواني */
+  const manualRecipe = () => ({ name: 'تقطير يدوي', pours: [{ volume_ml: mod.bVol, temp_c: mod.bTemp, pattern: mod.bPat, pause_s: 0, flow: mod.bFlow }] });
+  const manualExtra = () => ({ ml: mod.bVol, flow: mod.bFlow, manual: { temp: mod.bTemp, pattern: mod.bPat } });
+  function manualTalk() {
+    const v = artFx.view, now = Date.now();
+    v.done = S.manualDoneAt && now - S.manualDoneAt < 6000;
+    v.drain = !S.pouring && !v.done && !!S.manualDoneAt;
+    if (S.pouring) v.say = talk('manual', manualRecipe(), 0, manualExtra());
+    else if (v.done) v.say = talk('manualDone', manualRecipe(), 0, manualExtra());
+    else v.say = S.tapUntil > now ? S.tapLine : '';
+  }
+  $('#br-art').addEventListener('click', (e) => tapMajnoon(artFx, e, manualRecipe(), manualExtra()));
   function setPouring(on) {
-    S.pouring = on; if (on) { S.pourStart = Date.now(); if (artFx && artFx.view) artFx.view.progress = 0; }
+    if (!on && S.pouring) S.manualDoneAt = Date.now();
+    if (on) S.manualDoneAt = 0;
+    S.pouring = on; if (on) { S.pourStart = Date.now(); S.say = null; if (artFx && artFx.view) artFx.view.progress = 0; }
     actState($('#br-play'), on, 'ابدأ', 'وقّف');
   }
   $('#br-play').addEventListener('click', async () => {
@@ -707,7 +780,7 @@
     if (artFx) artFx.stop();
     artFx = m === 'grinder' ? Dots.grinder($('#gr-art'), () => ({ grinding: S.grinding }))
       : m === 'scale' ? Dots.scale($('#sc-art'), () => S.weight)
-      : Dots.brew($('#br-art'), { full: true });
+      : Dots.brew($('#br-art'), { full: true, enter: 'pour' });   // التقطير: الطاولة فاضية لين تضغط «ابدأ»، وبعدها يدخل المجنون بالسيرفر
   }
   function stopArt() { if (artFx) { artFx.stop(); artFx = null; } }
   function openModule(m) {
@@ -1243,7 +1316,7 @@
     setText($('#br-timer'), fmtSW(S.pouring ? Date.now() - S.pourStart : 0));
     const pourP = S.pouring ? Math.min(1, (Date.now() - S.pourStart) / (mod.bVol / mod.bFlow * 1000)) : 0;
     if (S.screen === 'brewer') $('#br-play').style.setProperty('--p', pourP.toFixed(3));
-    if (artFx && S.screen === 'brewer') { if (S.pouring) artFx.view.progress = pourP * 0.85; artFx.view.pouring = S.pouring; }
+    if (artFx && S.screen === 'brewer') { if (S.pouring) artFx.view.progress = pourP * 0.85; artFx.view.pouring = S.pouring; manualTalk(); }
     setText($('#sc-timer'), fmtSW(sw.elapsed + (sw.running ? Date.now() - sw.start : 0)));
     if (S.pouring && Date.now() - S.pourStart > (mod.bVol / mod.bFlow + 8) * 1000) setPouring(false);
     const idle = Date.now() - S.lastTouch;

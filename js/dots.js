@@ -163,7 +163,7 @@
   const INK = '#1A2219', PAPER = '#F5F8F2', YEL = '#F4C700', YEL_SH = '#D8B200', LOL = '#DE9457', SHADE = 'rgba(26,34,25,.22)';
   const LINES = ['#DE9457', '#CE94CC', '#EE7A84', '#E86C8D', '#F4C700', '#2FA8D5'];
   const POSE = {};
-  for (const n of ['write', 'run', 'sleep', 'happy', 'glasses', 'pour']) {
+  for (const n of ['write', 'run', 'sleep', 'happy', 'glasses', 'pour', 'down', 'carry']) {
     POSE[n] = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: `icons/majnoon-${n}.png` }) : null;
   }
   const ready = (im) => im && im.complete && im.naturalWidth;
@@ -184,6 +184,61 @@
     ctx.beginPath(); ctx.ellipse(cx, footY, ww * 0.36, hh * 0.035, 0, 0, Math.PI * 2); ctx.fill();
     ctx.drawImage(im, cx - ww / 2, footY - hh - bob, ww, hh);
   }
+  /* فقاعة كلام المجنون (سواليفه من majnoon-talk.js): ورقة بيضا بحافة الستكير وخط الحبر، والنص بخط ريمدي العربي.
+     side 'up' فوق النقطة، و'right' يمينها. ترجع ارتفاعها */
+  function bubbleLines(ctx, text, maxW) {
+    const words = text.split(' '), lines = [];
+    let cur = '';
+    for (const wd of words) {
+      const tryL = cur ? cur + ' ' + wd : wd;
+      if (cur && ctx.measureText(tryL).width > maxW) { lines.push(cur); cur = wd; } else cur = tryL;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function bubble(ctx, text, o) {
+    if (!text) return;
+    const fs = o.fs, pad = fs * 0.55, lh = fs * 1.32, tail = fs * 0.7;
+    ctx.save();
+    ctx.font = `700 ${fs}px "Baloo Bhaijaan 2", sans-serif`;
+    ctx.direction = 'rtl'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let lines = bubbleLines(ctx, text, o.maxW - pad * 2);
+    if (lines.length > 1) {                       // أسطر متوازنة: أضيق عرض يعطي نفس عدد الأسطر، عشان ما تبقى كلمة لحالها
+      let lo = (o.maxW - pad * 2) * 0.4, hi = o.maxW - pad * 2;
+      for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2; if (bubbleLines(ctx, text, mid).length > lines.length) lo = mid; else hi = mid; }
+      lines = bubbleLines(ctx, text, hi + 1);
+    }
+    const bw = Math.min(o.maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2), bh = lines.length * lh + pad * 1.1;
+    let bx, by;
+    if (o.side === 'right') { bx = o.x + tail; by = o.y - bh / 2; } else { bx = o.x - bw / 2; by = o.y - tail - bh; }
+    const [x0, y0, x1, y1] = o.bounds;
+    bx = Math.max(x0, Math.min(x1 - bw, bx)); by = Math.max(y0, Math.min(y1 - bh, by));
+    const r = Math.min(bh / 2, fs * 0.9), ax = Math.max(bx + r, Math.min(bx + bw - r, o.x));
+    const path = () => {
+      ctx.beginPath();
+      if (o.side === 'right') {
+        const ay = Math.max(by + r, Math.min(by + bh - r, o.y));
+        ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.arcTo(bx, by + bh, bx, by, r); ctx.lineTo(bx, ay + tail * 0.45); ctx.lineTo(o.x + tail * 0.15, o.y); ctx.lineTo(bx, ay - tail * 0.45);
+        ctx.arcTo(bx, by, bx + bw, by, r);
+      } else {
+        ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.lineTo(ax + tail * 0.5, by + bh); ctx.lineTo(Math.max(bx + r, Math.min(bx + bw - r, o.x)) + tail * 0.1, Math.min(o.y, by + bh + tail)); ctx.lineTo(ax - tail * 0.5, by + bh);
+        ctx.arcTo(bx, by + bh, bx, by, r); ctx.arcTo(bx, by, bx + bw, by, r);
+      }
+      ctx.closePath();
+    };
+    ctx.globalAlpha = o.alpha == null ? 1 : o.alpha;
+    ctx.lineJoin = 'round';
+    const k = fs / 14;
+    path(); ctx.strokeStyle = PAPER; ctx.lineWidth = 5 * k; ctx.stroke();
+    path(); ctx.fillStyle = PAPER; ctx.fill();
+    path(); ctx.strokeStyle = INK; ctx.lineWidth = 2 * k; ctx.stroke();
+    ctx.fillStyle = INK;
+    lines.forEach((l, j) => ctx.fillText(l, bx + bw / 2, by + pad * 0.55 + lh * (j + 0.5)));
+    ctx.restore();
+    return bh;
+  }
 
   // ---- brewing scene: Remedy-drawn dripper and carafe, Majnoon keeping watch -------------
   // view = {progress 0..1, pouring, grinding, paused}; opts.full draws over the whole canvas
@@ -194,9 +249,21 @@
     if (opts.level) f.view.progress = opts.level;
     const grounds = [];   // falling coffee bits while grinding
     const drops = [];     // drops in the stream
-    let kz = 1;           // حجم القمع والسيرفر: يصغرون وقت الصب والمجنون يكبر جنبهم (باريستا)
+    let kz = 1, kzSet = false;   // حجم القمع والسيرفر: يصغرون وقت الصب والمجنون يكبر جنبهم (باريستا)
+    /* دخول المجنون (المالك ٢٢ نوفمبر: «بعد الإعدادات خلاص المجنون يجي ومع السيرفر ويحضر الكوب»): opts.enter = 'now' يدخل
+       أول ما يفتح المشهد، و'pour' يدخل أول ما يبدأ الصب (التقطير اليدوي). قبلها الطاولة فاضية. يمشي من اليمين شايل القمع
+       والسيرفر، يحطهم، ويرجع لمكانه ماسك الإبريق */
+    const WALK = 1700, PLACE = 350, STEP = 0;
+    let enterAt = null, entered = !opts.enter;
+    let sayTxt = '', sayAt = 0, mBox = null;
+    f.hit = (clientX, clientY) => {
+      if (!mBox) return false;
+      const r = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+      const x = (clientX - r.left) * d, y = (clientY - r.top) * d;
+      return x >= mBox[0] && x <= mBox[2] && y >= mBox[1] && y <= mBox[3];
+    };
     f.start((F, t) => {
-      const { w, h } = F.size();
+      const { w, h, dpr } = F.size();
       const ctx = F.ctx, v = F.view;
       F.clear();
       level += (v.progress - level) * 0.04;
@@ -205,17 +272,18 @@
       const ax = full || portrait ? 0 : w * 0.5, aw = full || portrait ? w : w * 0.5, ah = full ? h : portrait ? h * 0.55 : h;
       const u0 = Math.min(aw, ah) / 100 * (opts.zoom || 1);
       /* وقت الصب (المالك ٢١ نوفمبر: «شلون السيرفر اكبر من المجنون؟»): المجنون باريستا واقف على الأرض بطول ٣ أرباع
-         المساحة تقريبًا، والقمع والسيرفر يصغرون لـ٤٠٪ ويقعدون على نفس الأرض، فتجي فوهة إبريقه (٥٥٪ من طوله فوق رجوله)
+         المساحة تقريبًا (وفوقه مكان الفقاعة)، والقمع والسيرفر يصغرون لـ٤٠٪ ويقعدون على نفس الأرض، فتجي فوهة إبريقه (٥٥٪ من طوله فوق رجوله)
          فوق القمع على طول. الانتقال ناعم */
-      const pourPose = v.pouring && opts.mascot !== false && ready(POSE.pour);
+      const mOn = opts.mascot !== false && ready(POSE.pour);   // المجنون بنفس الطول في كل الوضعيات، والسيرفر بنفس الحجم
+      const fsB = Math.max(14 * dpr, Math.min(26 * dpr, 4 * u0)), reserve = mOn ? fsB * 1.32 * 2 + fsB * 1.4 : 0;   // مكان فقاعة الكلام فوق راسه
       const top0 = ah * 0.17, ground = Math.min(ah * 0.8, top0 + 66 * u0);
       /* طول المجنون: يملأ المساحة فوق الأرض (٨٥٪) بلا ما يطلع برا فوق أو يمين، وحجم القمع يتحسب منه:
          حافة القمع تحت فوهة الإبريق بـ٥ وحدات */
       const pr = ready(POSE.pour) ? POSE.pour.naturalWidth / POSE.pour.naturalHeight : 1;
-      const pourH = Math.min(ground * 0.97, (aw * 0.95) / (pr * 0.992));   // المالك: «خل الرسمه اكبر»
+      const pourH = Math.min((ground - reserve) * 0.97, (aw * 0.95) / (pr * 0.992));   // المالك: «خل الرسمه اكبر»
       const pourTip = ground + 1.5 * u0 - 0.554 * pourH;
       const kPour = Math.min(1, Math.max(0.25, (ground - (pourTip + 5 * u0)) / (66 * u0)));
-      kz += ((pourPose ? kPour : 1) - kz) * 0.08;
+      kz = kzSet ? kz + ((mOn ? kPour : 1) - kz) * 0.08 : (kzSet = true, mOn ? kPour : 1);   // أول إطار بحجمه على طول
       const u = u0 * kz;
       const top = kz > 0.999 ? top0 : ground - 66 * u;
       const sx = Math.max(ax + 34 * u, ax + aw * ((opts.cx || 0.3) - 0.2 * Math.min(1, (1 - kz) / Math.max(0.01, 1 - kPour))));     // dripper / carafe centre line (يروح يسار وقت الصب عشان المجنون يوسع)
@@ -238,6 +306,17 @@
         ctx.bezierCurveTo(Rr, bellyY - 12 * u, Rr - 2 * u, cTop + 12 * u, sx + mouth / 2 + 0.5 * u, cTop + 5 * u);
         ctx.closePath();
       };
+      if (!entered && enterAt === null && (opts.enter === 'now' || v.pouring)) enterAt = t;
+      const eT = enterAt === null ? -1 : t - enterAt;
+      if (!entered && eT >= WALK + PLACE + STEP) entered = true;
+      const setupOn = entered || eT >= WALK;
+      const dTopW = 34 * u, dBotW = 10 * u, dH = 15 * u, dy0 = top + 3 * u;
+      if (setupOn) {
+      ctx.save();
+      if (!entered && eT < WALK + PLACE) {        // يحطه: يكبر من حجمه في يده لحجمه على الطاولة
+        const k = Math.min(1, (eT - WALK) / PLACE), sc = 0.5 + 0.5 * (1 - Math.pow(1 - k, 3));
+        ctx.translate(sx, cBot); ctx.scale(sc, sc); ctx.translate(-sx, -cBot);
+      }
       // shadow on the table
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath(); ctx.ellipse(sx, cBot + 1.5 * u, belly * 0.58, 2.2 * u, 0, 0, Math.PI * 2); ctx.fill();
@@ -292,7 +371,6 @@
       }
 
       // dripper: yellow cone (Remedy capsule yellow) on a small foot, wide rim on top
-      const dTopW = 34 * u, dBotW = 10 * u, dH = 15 * u, dy0 = top + 3 * u;
       const cone = () => {
         ctx.beginPath();
         ctx.moveTo(sx - dTopW / 2, dy0);
@@ -344,51 +422,101 @@
         ctx.restore();
       }
 
+      ctx.restore();
+      }
+
       // Majnoon next to the carafe: running while it grinds, writing notes while it pours, asleep when paused
-      const mx = ax + aw * 0.8, foot2 = cBot + 1.5 * u;
-      if (opts.mascot === false) { /* home tile: no Majnoon */ } else if (v.paused) {
-        majnoon(ctx, POSE.sleep, mx - 2 * u, foot2, 26 * u, 0);
+      /* المجنون: كل الوضعيات بنفس طوله وقت الصب (المالك ٢١ نوفمبر: «شلون السيرفر اكبر من المجنون؟»)، واقف يمين السيرفر
+         بحيث فوهة إبريقه فوق القمع. الوضعيات من المرسم (~/Develop/majnoon-art، معدّلة من صور المجنون الأصلية):
+         يدخل شايل السيرفر، يركض وقت الطحن، يصب وقت الصب (الفوهة في الصورة عند ١٪ من العرض و٤٥٪ من الطول)، يكتب في
+         دفتره بين الصبات، ماسك الإبريق تحت لما يقطّر، ينبسط لما يخلص، وينام لو وقّفت */
+      if (opts.mascot === false || !mOn) { mBox = null; return; }
+      const FEET = { pour: 0.646, down: 0.646, carry: 0.477, write: 0.548, glasses: 0.557, run: 0.559, happy: 0.566, sleep: 0.464 };
+      const HEAD = { run: 227, happy: 217, glasses: 199 };
+      const foot = cBot + 1.5 * u;
+      const swirl = live ? t / 700 : 0;
+      const tipX0 = sx + 2 * u, tipY0 = dy0 - 3 * u - 5 * u0;
+      const MH = Math.min(pourH, Math.max(20 * u0, (foot - tipY0) / 0.554));
+      const wP = MH * pr;
+      const homeX = tipX0 - wP * 0.006 + wP * FEET.pour;          // مكان رجوله وهو يصب
+      const pose = (n, cx, bob, k = 1) => {
+        const im = POSE[n];
+        if (!ready(im)) return null;
+        const hh = MH * k * (207 / (HEAD[n] || 207)), ww = hh * im.naturalWidth / im.naturalHeight, left = cx - ww * FEET[n];
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.ellipse(cx, foot, ww * 0.3, hh * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(im, left, foot - hh - bob, ww, hh);
+        mBox = [left, foot - hh, left + ww, foot];
+        return { x: left + ww * 0.6, y: foot - hh * 0.99 - bob };
+      };
+      let head = null;
+      if (!entered) {
+        if (eT < 0) { mBox = null; return; }                        // قبل «ابدأ»: الطاولة فاضية
+        const im = POSE.carry;
+        const wC = MH * (ready(im) ? im.naturalWidth / im.naturalHeight : 0.8);
+        const stopX = homeX;                                        // يوقف بمكانه جنب السيرفر ويحطه على يساره
+        if (eT < WALK) {
+          const k = eT / WALK, e = 1 - Math.pow(1 - k, 2);
+          const x0 = ax + aw + wC * 0.6;
+          head = pose('carry', x0 + (stopX - x0) * e, Math.abs(Math.sin(eT / 130)) * 2.2 * u0);
+        } else {
+          head = pose('down', homeX, 0);
+        }
+      } else if (v.paused) {
+        head = pose('sleep', homeX, 0, 0.62);
         ctx.fillStyle = 'rgba(245,248,242,0.7)'; ctx.textAlign = 'center'; ctx.direction = 'ltr';
         for (let k = 0; k < 3; k++) {
           const ph = (t / 1800 + k / 3) % 1;
           ctx.globalAlpha = Math.sin(ph * Math.PI);
-          ctx.font = `400 ${(4 + k * 1.6) * u}px "Concert One", sans-serif`;
-          ctx.fillText('z', mx + 6 * u + ph * 8 * u, foot2 - 26 * u - ph * 16 * u);
+          ctx.font = `400 ${(4 + k * 1.6) * u0}px "Concert One", sans-serif`;
+          ctx.fillText('z', homeX + 6 * u0 + ph * 8 * u0, foot - MH * 0.62 - ph * 16 * u0);
         }
         ctx.globalAlpha = 1;
       } else if (v.grinding) {
-        majnoon(ctx, POSE.run, mx, foot2, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
-      } else if (v.pouring && ready(POSE.pour)) {
-        /* المجنون باريستا وقت التقطير (المالك ٢١ نوفمبر): صورته ماسك إبريق التقطير (icons/majnoon-pour.png، من كودكس مثل
-           باقي الوضعيات)، الفوهة فوق القمع تدوّر دوائر صغيرة، والماء ينزل منها على البن. الفوهة في الصورة عند ١٪ من العرض
-           و٤٥٪ من الطول، رافع الإبريق عشان السيرفر يكبر (المالك: «السيرفر صار صغير حيل») (رسمة كودكس من المرسم ~/Develop/majnoon-art، معدّلة من majnoon-write نفسها) */
+        head = pose('run', homeX, Math.abs(Math.sin(t / 110)) * 2.5 * u0);
+      } else if (v.pouring) {
         const im = POSE.pour;
-        const swirl = live ? t / 700 : 0;
-        const tipX = sx + 2 * u + Math.cos(swirl) * 3 * u;
-        const tipY = dy0 - 3 * u - 5 * u0 + Math.sin(swirl) * 0.5 * u0;          // فوق حافة القمع بشوي
-        const hh = Math.min(pourH, Math.max(20 * u0, (ground + 1.5 * u0 - tipY) / 0.554)), ww = hh * im.naturalWidth / im.naturalHeight;
-        const bedY = dy0 - 3 * u;
+        const tipX = tipX0 + Math.cos(swirl) * 3 * u;
+        const tipY = tipY0 + Math.sin(swirl) * 0.5 * u0;          // فوق حافة القمع بشوي، تدوّر دوائر صغيرة
+        const ww = wP, hh = MH, bedY = dy0 - 3 * u;
         ctx.save(); ctx.lineCap = 'round';
         ctx.strokeStyle = 'rgba(190,225,240,0.9)'; ctx.lineWidth = 1.1 * u;
         ctx.beginPath(); ctx.moveTo(tipX, tipY);
         for (let j = 1; j <= 6; j++) ctx.lineTo(tipX + Math.sin(t / 90 + j) * 0.25 * u, tipY + (bedY - tipY) * j / 6);
         ctx.stroke(); ctx.restore();
-        ctx.drawImage(im, tipX - ww * 0.006, tipY - hh * 0.446 + Math.sin(t / 380) * 0.4 * u, ww, hh);
-      } else if (v.pouring) {
-        majnoon(ctx, POSE.write, mx, foot2, 40 * u, Math.abs(Math.sin(t / 420)) * 1.2 * u);
+        const left = tipX - ww * 0.006, topY = tipY - hh * 0.446 + Math.sin(t / 380) * 0.4 * u;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.ellipse(left + ww * FEET.pour, foot, ww * 0.25, hh * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(im, left, topY, ww, hh);
+        mBox = [left, topY, left + ww, topY + hh];
+        head = { x: left + ww * 0.63, y: topY + hh * 0.01 };
+      } else if (v.done) {
+        head = pose('happy', homeX, Math.max(0, Math.sin(t / 260)) * 3 * u0);
+      } else if (v.wait) {
+        head = pose('write', homeX, Math.abs(Math.sin(t / 420)) * 0.8 * u0);
+      } else if (v.drain) {
+        head = pose('down', homeX, Math.abs(Math.sin(t / 600)) * 0.6 * u0);
       } else {
-        majnoon(ctx, POSE.glasses, mx, foot2, 40 * u, Math.abs(Math.sin(t / 600)) * 0.8 * u);
+        head = pose('glasses', homeX, Math.abs(Math.sin(t / 600)) * 0.6 * u0);
+      }
+      // فقاعة الكلام فوق راسه، تظهر بهدوء وتتبدل لما يتغير الكلام
+      const say = entered || eT >= WALK ? v.say || '' : '';
+      if (say !== sayTxt) { sayTxt = say; sayAt = t; }
+      if (sayTxt && head) {
+        bubble(ctx, sayTxt, { x: head.x, y: head.y, fs: fsB, maxW: Math.min(aw * 0.9, 74 * u0, fsB * 17), side: 'up',
+          alpha: Math.min(1, (t - sayAt) / 260), bounds: [ax + 4, 4, ax + aw - 4, ah] });
       }
     });
     return f;
   }
 
   // ---- finish: "ENJOY" in Concert One, Majnoon celebrating, line-colour confetti ----------
-  function finish(canvas) {
+  function finish(canvas, opts = {}) {
     const f = new Field(canvas);
+    f.say = opts.say || '';
     const bits = [];
     f.start((F, t) => {
-      const { w, h } = F.size();
+      const { w, h, dpr } = F.size();
       const ctx = F.ctx;
       F.clear();
       const u = Math.min(w, h) / 100;
@@ -425,6 +553,11 @@
       // Majnoon jumping for joy under the word
       const jump = Math.max(0, Math.sin(t / 260)) * 4 * u;
       majnoon(ctx, POSE.happy, w / 2, h * 0.7, h * 0.33, jump);
+      if (f.say && t > 900) {                     // كلمة الختام جنبه (من سواليف الخلاص)
+        const fsF = Math.max(15 * dpr, Math.min(28 * dpr, 3.6 * u)), ww = ready(POSE.happy) ? h * 0.33 * POSE.happy.naturalWidth / POSE.happy.naturalHeight : h * 0.25;
+        bubble(ctx, f.say, { x: w / 2 + ww * 0.42, y: h * 0.7 - h * 0.25, fs: fsF, maxW: Math.min(w * 0.42, fsF * 15), side: 'right',
+          alpha: Math.min(1, (t - 900) / 300), bounds: [4, 4, w - 4, h - 4] });
+      }
     });
     return f;
   }
