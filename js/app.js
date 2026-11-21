@@ -16,7 +16,7 @@
       }
     },
   };
-  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false, machineAwake: true, hopper: false }, store.get('prefs', {}));
+  const prefs = Object.assign({ awake: true, idleMin: 3, sim: false, machineAwake: true, hopper: false, hopperSecs: 25 }, store.get('prefs', {}));
   const savePrefs = () => store.set('prefs', prefs);
   const SIM = new URLSearchParams(location.search).has('sim') || prefs.sim;
 
@@ -429,9 +429,9 @@
   }
   async function hopperGrind(p) {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    /* بلا معايرة: ٢٥ ثانية ثابتة (المالك: «غالبا بين ٢٠ و ٣٠ ثانيه يعني خله متوسط ٢٥»). والمعايرة تدقّقها لكل درجة */
     const rf = rateFor(p.grind_size);
-    if (!rf) return 'الخزان مليان: عاير الطاحونة من الإعدادات أول';
-    const secs = Math.min(60, p.dose_g / rf.rate);
+    const secs = rf ? Math.min(60, p.dose_g / rf.rate) : (prefs.hopperSecs || 25);
     toast(`أطحن ${p.dose_g} جرام من الخزان (${secs.toFixed(1)} ثانية)`);
     let e = await link.cmd('grinderEnter', p.grind_size, p.rpm);
     if (e) return e;
@@ -1107,7 +1107,7 @@
   }));
   $('#st-awake').addEventListener('change', (e) => { prefs.awake = e.target.checked; savePrefs(); keepAwake(); });
   $('#st-machine').addEventListener('change', (e) => { prefs.machineAwake = e.target.checked; savePrefs(); });
-  $('#st-hopper').addEventListener('change', (e) => { prefs.hopper = e.target.checked; savePrefs(); toast(prefs.hopper ? (rateFor(40) ? 'الخزان مليان: أطحن قد الجرعة بالوقت' : 'شغّلته. عاير الطاحونة من «عاير الطاحونة» تحته') : 'الطحن من الوصفة نفسها'); });
+  $('#st-hopper').addEventListener('change', (e) => { prefs.hopper = e.target.checked; savePrefs(); toast(prefs.hopper ? 'الخزان مليان: أطحن ٢٥ ثانية من الخزان (أو حسب المعايرة) وأوقف' : 'الطحن من الوصفة نفسها'); });
   $('#st-calib').addEventListener('click', calibrateGrind);
   $('#st-sim').addEventListener('change', (e) => { prefs.sim = e.target.checked; savePrefs(); location.reload(); });
   $$('#st-idle button').forEach((b) => b.addEventListener('click', () => { prefs.idleMin = +b.dataset.idle; savePrefs(); renderSettings(); }));
