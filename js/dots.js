@@ -205,15 +205,15 @@
       const ax = full || portrait ? 0 : w * 0.5, aw = full || portrait ? w : w * 0.5, ah = full ? h : portrait ? h * 0.55 : h;
       const u0 = Math.min(aw, ah) / 100 * (opts.zoom || 1);
       /* وقت الصب (المالك ٢١ نوفمبر: «شلون السيرفر اكبر من المجنون؟»): المجنون باريستا واقف على الأرض بطول ٣ أرباع
-         المساحة تقريبًا، والقمع والسيرفر يصغرون لـ٤٠٪ ويقعدون على نفس الأرض، فتجي فوهة إبريقه (٤٣٪ من طوله فوق رجوله)
+         المساحة تقريبًا، والقمع والسيرفر يصغرون لـ٤٠٪ ويقعدون على نفس الأرض، فتجي فوهة إبريقه (٣١٪ من طوله فوق رجوله)
          فوق القمع على طول. الانتقال ناعم */
       const pourPose = v.pouring && opts.mascot !== false && ready(POSE.pour);
       const top0 = ah * 0.17, ground = Math.min(ah * 0.8, top0 + 66 * u0);
       /* طول المجنون: يملأ المساحة فوق الأرض (٨٥٪) بلا ما يطلع برا فوق أو يمين، وحجم القمع يتحسب منه:
          حافة القمع تحت فوهة الإبريق بـ٥ وحدات */
       const pr = ready(POSE.pour) ? POSE.pour.naturalWidth / POSE.pour.naturalHeight : 1;
-      const pourH = Math.min(ground * 0.97, (aw * 0.95) / (pr * 0.922));   // المالك: «خل الرسمه اكبر»
-      const pourTip = ground + 1.5 * u0 - 0.429 * pourH;
+      const pourH = Math.min(ground * 0.97, (aw * 0.95) / (pr * 0.992));   // المالك: «خل الرسمه اكبر»
+      const pourTip = ground + 1.5 * u0 - 0.311 * pourH;
       const kPour = Math.min(1, Math.max(0.25, (ground - (pourTip + 5 * u0)) / (66 * u0)));
       kz += ((pourPose ? kPour : 1) - kz) * 0.08;
       const u = u0 * kz;
@@ -360,20 +360,20 @@
         majnoon(ctx, POSE.run, mx, foot2, 40 * u, Math.abs(Math.sin(t / 110)) * 3 * u);
       } else if (v.pouring && ready(POSE.pour)) {
         /* المجنون باريستا وقت التقطير (المالك ٢١ نوفمبر): صورته ماسك إبريق التقطير (icons/majnoon-pour.png، من كودكس مثل
-           باقي الوضعيات)، الفوهة فوق القمع تدوّر دوائر صغيرة، والماء ينزل منها على البن. الفوهة في الصورة عند ٧٫٨٪ من العرض
-           و٥٧٪ من الطول */
+           باقي الوضعيات)، الفوهة فوق القمع تدوّر دوائر صغيرة، والماء ينزل منها على البن. الفوهة في الصورة عند ١٪ من العرض
+           و٦٩٪ من الطول (رسمة كودكس من المرسم ~/Develop/majnoon-art، معدّلة من majnoon-write نفسها) */
         const im = POSE.pour;
         const swirl = live ? t / 700 : 0;
         const tipX = sx + 2 * u + Math.cos(swirl) * 3 * u;
         const tipY = dy0 - 3 * u - 5 * u0 + Math.sin(swirl) * 0.5 * u0;          // فوق حافة القمع بشوي
-        const hh = Math.min(pourH, Math.max(20 * u0, (ground + 1.5 * u0 - tipY) / 0.429)), ww = hh * im.naturalWidth / im.naturalHeight;
+        const hh = Math.min(pourH, Math.max(20 * u0, (ground + 1.5 * u0 - tipY) / 0.311)), ww = hh * im.naturalWidth / im.naturalHeight;
         const bedY = dy0 - 3 * u;
         ctx.save(); ctx.lineCap = 'round';
         ctx.strokeStyle = 'rgba(190,225,240,0.9)'; ctx.lineWidth = 1.1 * u;
         ctx.beginPath(); ctx.moveTo(tipX, tipY);
         for (let j = 1; j <= 6; j++) ctx.lineTo(tipX + Math.sin(t / 90 + j) * 0.25 * u, tipY + (bedY - tipY) * j / 6);
         ctx.stroke(); ctx.restore();
-        ctx.drawImage(im, tipX - ww * 0.078, tipY - hh * 0.571 + Math.sin(t / 380) * 0.4 * u, ww, hh);
+        ctx.drawImage(im, tipX - ww * 0.008, tipY - hh * 0.689 + Math.sin(t / 380) * 0.4 * u, ww, hh);
       } else if (v.pouring) {
         majnoon(ctx, POSE.write, mx, foot2, 40 * u, Math.abs(Math.sin(t / 420)) * 1.2 * u);
       } else {
