@@ -69,7 +69,7 @@
   const fmtNum = (x) => (Math.round(x * 10) / 10).toString();
   // forBrew: apply the quick "without grinding" switch (pre-ground coffee) without touching the saved recipe
   function toMachine(p, forBrew = false) {
-    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on && !(forBrew && (prefs.noGrind || S.forceNoGrind)),
+    return { dose_g: p.dose_g, grind_size: p.grind_size, rpm: p.rpm, cup_type: p.cup_type, grinder_on: p.grinder_on && (S.forceGrind || !(forBrew && (prefs.noGrind || S.forceNoGrind))),
       pours: p.pours.map((q) => ({ volume_ml: q.volume_ml, temp_c: q.temp_c, pattern: q.pattern, flow: q.flow, pause_s: q.pause_s,
         agitate_before: q.agitate_before, agitate_after: q.agitate_after })) };
   }
@@ -397,7 +397,7 @@
     /* الخزان مليان (المالك ٢١ نوفمبر: «اعبي الخزان قهوه ويصير الطحن تقريبي … ما يصير اوفر فلو»): نطحن قبل الوصفة
        بأمر الطاحونة اليدوي ونوقف لما يزيد الميزان قد جرعة الوصفة، وبعدين الوصفة بلا طحن. الباقي يبقى في الخزان */
     let ground = false;
-    if (prefs.hopper && p.grinder_on && !prefs.noGrind && !S.forceNoGrind) {
+    if (prefs.hopper && p.grinder_on && !prefs.noGrind && !S.forceNoGrind && !S.forceGrind) {
       if (S.hopperBusy) return;
       S.hopperBusy = true;
       let e;
@@ -1295,17 +1295,25 @@
       return toast('قهوة الدوام: الكوب مو على المكينة، رجّعه وتبدأ لحالها');
     }
     dawamiBusy = id;
-    /* قهوة الدوام وحضّري الحين دايمًا خطوتين (المالك ٢١ نوفمبر: «اول شي تضغط خيار الطاحونه لحاله وتطحن ٢٥ ثانيه بعدين
-       تروح خيار التحضير وتسوي تحضير بدون طحن»): الطاحونة لحالها ٢٥ ثانية بالضبط ثم الوصفة بلا طحن أبد، مهما كانت
-       الإعدادات. الوصفة بطحن تطحن الخزان كله، فما تنرسل من هنا أبد */
+    /* قهوة الدوام وحضّري الحين (المالك ٢١ نوفمبر: «حط تقطير مع طحن وانتظر بعد الطحن ٢٥ ثانيه وبعدين الغ العمليه
+       وسوي تحضير بدون طحن»): الوصفة بطحن تبدأ (فأداة التقطير تروح مكانها)، وبعد ٢٥ ثانية من بداية الطحن نلغي العملية
+       كلها، وبعدين نفس الوصفة بلا طحن. مهما كانت الإعدادات */
     const keepNoGrind = prefs.noGrind;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     try {
       wake(); openDetail(p.uid);
       if (p.grinder_on) {
-        S.hopperBusy = true;
-        let ge;
-        try { ge = await hopperGrind(p, 25); } finally { S.hopperBusy = false; }
-        if (ge) { toast('قهوة الدوام وقفت: ' + ge); return; }
+        S.forceGrind = true;
+        $('#d-start').click();
+        S.forceGrind = false;
+        for (let i = 0; i < 60 && S.flow !== 'brewing'; i++) await sleep(1000);
+        if (S.flow !== 'brewing') { toast('قهوة الدوام: الطحن ما بدأ'); return; }
+        await sleep(25000);
+        cmdResult('stop', await link.stop());
+        for (let i = 0; i < 20 && S.flow !== 'idle'; i++) await sleep(1000);
+        await sleep(3000);
+        if (S.flow !== 'idle') { toast('قهوة الدوام: المكينة ما رجعت جاهزة بعد الطحن'); return; }
+        openDetail(p.uid);
       }
       S.forceNoGrind = true;
       $('#d-start').click();
@@ -1315,7 +1323,7 @@
         prefs.noGrind = keepNoGrind;
         /* شلت «حماية الكوب ٢» (٢١ نوفمبر): الميزان ما يقرا وقت الصب في الوصفة، فكانت توقف التحضير الصحيح وتقول «الماء ما نزل في كوب» */
       }
-    } finally { S.forceNoGrind = false; prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
+    } finally { S.forceGrind = false; S.forceNoGrind = false; prefs.noGrind = keepNoGrind; dawamiBusy = ''; refreshDetail(); }
   }
   setInterval(dawamiPoll, 30000);
   setTimeout(dawamiPoll, 3000);
